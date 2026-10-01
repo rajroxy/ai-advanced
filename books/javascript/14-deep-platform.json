@@ -1,0 +1,101 @@
+{
+  "part": "XIV. Deep Dives: Platform and Runtime",
+  "chapters": [
+    {
+      "c": "DOM and Events — Worked Examples",
+      "s": [
+        {
+          "t": "Building and updating the DOM",
+          "p": [
+            "Creating a list safely means creating elements and setting text rather than assembling markup: const li = document.createElement('li'); li.textContent = user.name; li.dataset.id = user.id; list.append(li). Using textContent guarantees that a name containing angle brackets is displayed literally rather than parsed as markup, which closes the most common injection hole.",
+            "Batch insertion avoids repeated reflow. Appending into a DocumentFragment and inserting the fragment once performs a single layout: const frag = document.createDocumentFragment(); rows.forEach((r) => frag.append(makeRow(r))); table.append(frag). For very large lists, virtualise instead, rendering only the visible window so the document never holds thousands of nodes.",
+            "Updating in place is cheaper than rebuilding when the structure is stable. Keep a reference to the node and change its text or class: row.querySelector('.status').textContent = status; row.classList.toggle('error', status === 'error'). Rebuilding the whole list on every change discards focus, scroll position and internal state, which is a visible defect as well as a performance cost.",
+            "Reading layout forces the browser to compute it, so interleaving reads and writes causes repeated reflow, known as layout thrashing. Read all measurements first into variables, then perform all writes. When several elements change size, batch the work inside requestAnimationFrame so it happens once per frame."
+          ]
+        },
+        {
+          "t": "Event handling recipes",
+          "p": [
+            "Delegation handles an unbounded list with one listener: list.addEventListener('click', (e) => { const button = e.target.closest('button[data-action]'); if (!button) return; handle(button.dataset.action, button.dataset.id); }). Because the listener lives on the container, items added later are handled automatically and no listeners need to be removed when rows are recycled.",
+            "Debouncing keeps a search field responsive: const onInput = debounce((value) => runSearch(value), 250); input.addEventListener('input', (e) => onInput(e.target.value)). Throttling instead limits a scroll handler to a fixed rate, which is the right choice when intermediate values matter, such as updating a progress indicator while scrolling.",
+            "Passive listeners let the browser scroll without waiting for the handler: window.addEventListener('scroll', onScroll, { passive: true }). A non-passive touch or wheel listener that never calls preventDefault blocks the compositor and makes scrolling feel heavy, so passive should be the default for handlers that only observe.",
+            "Custom events decouple a component from its surroundings: element.dispatchEvent(new CustomEvent('selection', { detail: { id }, bubbles: true })). A parent listens for selection rather than reaching into the child, and the child knows nothing about the parent, which is what allows the two to be developed and tested independently."
+          ]
+        },
+        {
+          "t": "Forms, validation and accessibility",
+          "p": [
+            "Read form values from FormData rather than from individual inputs: const data = Object.fromEntries(new FormData(form)). This captures checkboxes, selects and multi-value fields with the same code and avoids forgetting a field after markup changes. Convert and validate each value immediately, because every field arrives as a string.",
+            "Client validation improves feedback and must never replace server validation, because the client is fully under the user's control. Validate on submit and on blur rather than on every keystroke, so the user is not scolded mid-typing, and place the message next to the field with aria-describedby linking them so a screen reader announces it.",
+            "Accessibility is a correctness requirement. Use real buttons rather than clickable divs, label every input, keep a logical tab order, and never remove focus outlines without replacing them with a visible focus style. Keyboard users must be able to reach and operate everything a mouse user can.",
+            "Do not put heavy synchronous work in a submit handler, because it freezes the interface and the user may click again. Disable the submit button while the request is in flight, show a progress state, and re-enable it in a finally block so a failure does not leave the form permanently disabled."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Networking and Storage — Worked Examples",
+      "s": [
+        {
+          "t": "fetch patterns and resilience",
+          "p": [
+            "A fetch helper that checks the status and parses JSON once keeps call sites short: async function getJson(url, options) { const res = await fetch(url, { headers: { accept: 'application/json' }, ...options }); if (!res.ok) throw new Error(`${res.status} ${res.statusText}`); return res.json(); }. Centralising the check prevents the classic bug of treating a 500 response as success because fetch resolved.",
+            "Retry with exponential backoff and jitter avoids hammering a struggling service: async function withRetry(fn, attempts = 3) { for (let i = 0; ; i++) { try { return await fn(); } catch (err) { if (i >= attempts - 1) throw err; await sleep(Math.min(2000, 2 ** i * 100 + Math.random() * 100)); } } }. Retry only idempotent requests unless the server accepts an idempotency key, and never retry a validation error.",
+            "Cancellation should accompany anything the user can abandon. Create an AbortController per operation, pass its signal to fetch, and abort on navigation, on a new search that supersedes the old one, or on a timeout. A superseded request that is not aborted can arrive late and overwrite fresher results, which produces mysterious flicker in search and autocomplete.",
+            "Uploading and downloading with progress uses the response body stream: const reader = res.body.getReader(); let received = 0; while (true) { const { done, value } = await reader.read(); if (done) break; received += value.length; onProgress(received, total); }. The total comes from the content-length header when the server supplies it, and progress is meaningless without it."
+          ]
+        },
+        {
+          "t": "Caching and offline behaviour",
+          "p": [
+            "A simple in-memory cache keyed by request avoids duplicate calls during one session: const cache = new Map(); const get = (url) => cache.has(url) ? cache.get(url) : (cache.set(url, getJson(url)), cache.get(url)). Always bound such a cache or expire entries, otherwise a long session accumulates responses indefinitely and holds memory that is never released.",
+            "Persisting a cache to storage makes a second visit instant: write the parsed response to IndexedDB with a timestamp, read it on load, and revalidate in the background. Showing cached data immediately and replacing it when the network responds is called stale-while-revalidate and gives the impression of an offline-capable application without any special infrastructure.",
+            "A service worker intercepts requests and can serve a cached shell when the network fails. The strategy matters: cache-first for immutable assets with hashed filenames, network-first for data that must be fresh, and a fallback page for navigation requests. Version the cache name and delete old caches on activation, otherwise users see stale builds forever.",
+            "Storage quotas differ across browsers and can be evicted under pressure, so a cache is an optimisation and never the system of record. Only user-authored data deserves a durable home, and even that should be synchronised to a server if losing it would be unacceptable. Treat anything on the client as disposable."
+          ]
+        },
+        {
+          "t": "Choosing the right storage",
+          "p": [
+            "The decision follows size, lifetime and sensitivity. A cookie is for a session token the server must receive. sessionStorage is for ephemeral UI state that should vanish with the tab. localStorage is for small preferences. IndexedDB is for structured data, files and caches that exceed a few megabytes. In-memory is for anything that need not survive a reload.",
+            "Never store secrets in localStorage or sessionStorage, because any script on the origin can read them and a single cross-site scripting flaw exposes every user. Authentication is best carried by an httpOnly, secure, same-site cookie that JavaScript cannot read, which removes the token from the reach of injected code entirely.",
+            "Values in web storage are strings, so objects must be serialised. Guard the parse, because the stored value can be corrupted or written by an older version of the application: function readJson(key, fallback) { try { return JSON.parse(localStorage.getItem(key) ?? '') ?? fallback; } catch { return fallback; } }. A missing try-catch here turns a small corruption into a permanently broken page.",
+            "IndexedDB upgrades are versioned, so schema changes need a migration path. Open with an incremented version, and in the upgrade callback create or alter stores and indexes. Because the upgrade runs only when the stored version is lower, the code must handle a fresh database and every previous version, which is the same discipline a server-side database migration requires."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Node.js and Tooling — Worked Examples",
+      "s": [
+        {
+          "t": "Files, paths and CLI patterns",
+          "p": [
+            "Always build paths with the path module: const target = join(root, 'data', 'users.json'). String concatenation breaks on Windows and mishandles separators, and join normalises the result. Use resolve when an absolute path is required, and basename and extname to extract the parts rather than splitting on a slash.",
+            "Reading a configuration file safely distinguishes absence from failure: try { return JSON.parse(await readFile(configPath, 'utf8')); } catch (err) { if (err.code === 'ENOENT') return defaults; throw err; }. Treating a missing file as an error makes first-run experience painful, while swallowing every error hides a malformed file that should be reported.",
+            "A command-line entry point reads its arguments from process.argv, but a real tool parses flags with a small helper so it supports --name value, short aliases and a help text. Validate required arguments and print usage to stderr before exiting with a non-zero code, because a shell script checking the exit status depends on that convention.",
+            "Exit codes carry meaning: zero for success and a non-zero value for failure. Using process.exitCode rather than process.exit allows buffered output to flush. Handling SIGINT to clean up temporary files and close connections makes a tool well behaved when a user presses control-C mid-operation."
+          ]
+        },
+        {
+          "t": "Streams, buffers and worker threads",
+          "p": [
+            "Streaming a file instead of reading it whole keeps memory constant: await pipeline(createReadStream(source), createGzip(), createWriteStream(destination)). The pipeline helper propagates errors and closes every stage, which manual piping does not, so a mid-stream failure does not leave a dangling file handle.",
+            "Processing a large file line by line uses async iteration over the read stream and a transform: for await (const chunk of createReadStream(file)) { for (const line of chunk.toString().split('\\n')) process(line); }. A streaming decoder is required for correctness with multi-byte characters, because a character can straddle a chunk boundary and naive per-chunk decoding corrupts it.",
+            "Buffers are the binary type: Buffer.from(text, 'utf8') encodes, buffer.toString('base64') encodes further, and Buffer.concat(chunks) reassembles a streamed result. Slicing a buffer shares memory with the original, so copy when the receiver must not observe later writes.",
+            "CPU-bound work belongs in a worker thread, because it would otherwise block the event loop and stall every other request. Post the input to the worker, receive the result as a message, and keep the messages small or transfer an ArrayBuffer to move ownership without copying. Measure first: a worker adds a thread and a serialisation cost that is wasted if the task is actually input-output bound."
+          ]
+        },
+        {
+          "t": "Testing and build recipes",
+          "p": [
+            "A unit test is arrange, act, assert with injected collaborators: const repo = { save: spy() }; const service = makeService(repo); await service.create({ name: 'Ada' }); expect(repo.save).toHaveBeenCalledOnce(). The injected repository is what makes the test fast and deterministic, and it removes the need to mock a module.",
+            "Testing asynchronous code requires awaiting the result, not the call: await expect(loadUser(1)).resolves.toEqual({ id: 1 }). Without the await the assertion is never reached and the test passes for the wrong reason, which is the most dangerous kind of green test. For expected rejections, assert on the message or the error type so an unrelated failure does not satisfy the assertion.",
+            "A build pipeline runs the same checks locally and in continuous integration: type checking, linting, unit tests and a production build. Running them in that order fails fast on the cheapest signal. Caching dependencies between runs keeps the feedback loop short, and a lock file makes the environment reproducible.",
+            "The build target should be the oldest environment you genuinely support. Every transpile step costs build time and obscures stack traces, so shipping modern syntax to modern engines removes a whole layer of tooling. Where a feature is not yet universal, transpile that feature rather than everything."
+          ]
+        }
+      ]
+    }
+  ]
+}

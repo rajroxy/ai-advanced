@@ -1,0 +1,101 @@
+{
+  "part": "XV. Patterns, Bugs and Recipes",
+  "chapters": [
+    {
+      "c": "Design Patterns — Worked Examples",
+      "s": [
+        {
+          "t": "Module, factory and singleton",
+          "p": [
+            "The module pattern hides state behind closures: const store = (() => { const items = new Map(); return { get: (k) => items.get(k), set: (k, v) => (items.set(k, v), v) }; })(). The Map is unreachable from outside, so the only way to change it is through the returned functions, which is a boundary that holds even before private fields existed.",
+            "A factory centralises creation and defaults: function createRequest(url, { method = 'GET', retries = 2, headers = {} } = {}) { return { url, method, retries, headers }; }. Callers state only what differs, new options can be added without breaking existing calls, and the defaults live in one place rather than being repeated at every site.",
+            "A singleton in JavaScript is usually just a module-level constant, because modules are evaluated once and their exports are shared: export const db = openDatabase(config). That is simpler and more testable than a class with a getInstance method, and it avoids the global mutable state that makes singletons hard to isolate in tests.",
+            "Object pool and lazy initialisation patterns avoid repeated expensive setup: let client; function getClient() { return (client ??= connect()); }. The nullish assignment creates the client on first use and reuses it afterwards, which is the correct semantics for a resource that is expensive to open and safe to share."
+          ]
+        },
+        {
+          "t": "Observer, pub/sub and events",
+          "p": [
+            "A minimal emitter shows the pattern in a few lines: function emitter() { const listeners = new Map(); return { on(event, fn) { (listeners.get(event) ?? listeners.set(event, new Set()).get(event)).add(fn); return () => listeners.get(event).delete(fn); }, emit(event, payload) { for (const fn of listeners.get(event) ?? []) fn(payload); } }; }. Returning an unsubscribe function from on is the detail that prevents listener leaks, because the caller can clean up without holding a reference to the map.",
+            "Publish and subscribe decouples producers from consumers across a larger system. The difference from a plain observer is that neither side knows the other: a message bus mediates. This makes cross-cutting concerns such as analytics or logging easy to add, at the cost of making control flow harder to follow, so keep the bus narrow and the event names explicit.",
+            "A signal or reactive value generalises the observer: a function that returns the current value, records its dependents on read, and notifies them on write. This is the core of every reactive framework, and it explains why reading a value inside a computation is what subscribes to it. Understanding the read-to-subscribe rule removes the mystery from reactivity.",
+            "Whatever the mechanism, always provide disposal. A subscriber that outlives its owner keeps the owner alive through the closure and continues to receive events, which causes both a memory leak and duplicate handling. Frameworks expose a cleanup hook that runs on unmount, and hand-written code should return an unsubscribe function and call it."
+          ]
+        },
+        {
+          "t": "Strategy, command and state machines",
+          "p": [
+            "The strategy pattern replaces a conditional with a lookup: const formatters = { json: (x) => JSON.stringify(x), csv: (x) => toCsv(x), text: (x) => String(x) }; const format = formatters[kind] ?? formatters.text. Adding a format is now adding an entry rather than editing a branch, and the set of strategies can be built dynamically or injected in a test.",
+            "The command pattern turns an action into a value: const commands = { rename: (s, p) => ({ ...s, name: p.name }), toggle: (s) => ({ ...s, done: !s.done }) }; const apply = (state, { type, payload }) => commands[type](state, payload). Because actions are data, they can be logged, queued, replayed and reversed, which is how undo stacks and event sourcing work.",
+            "A state machine makes illegal transitions impossible: const transitions = { idle: ['loading'], loading: ['loaded', 'failed'], loaded: ['idle'], failed: ['idle'] }; function next(state, event) { if (!transitions[state].includes(event)) throw new Error('invalid transition: ' + state + ' -> ' + event); return event; }. Explicit transitions replace a scattering of boolean flags that can otherwise reach combinations the interface never intended.",
+            "A repository interface separates data access from business logic: function makeUserRepo(store) { return { get: (id) => store.read('users', id), save: (u) => store.write('users', u) }; }. The domain calls the interface, a test injects an in-memory implementation, and the production implementation talks to the real database, all without changing the domain."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Common Bugs and How to Fix Them",
+      "s": [
+        {
+          "t": "Type and coercion bugs",
+          "p": [
+            "Comparing a string to a number with the loose operator hides a parse failure: if (count == 5) is true for the string five. Use the strict operator and convert explicitly with Number, then check Number.isNaN. The same applies to sorting, where a comparator that subtracts strings produces NaN and leaves the array in an unspecified order.",
+            "Treating a falsy value as absent is the most frequent logic bug in JavaScript. A quantity of zero, an empty string or a false flag all take the else branch, so if (value) is wrong when zero is meaningful. Test explicitly, and use the nullish coalescing operator rather than the logical or when supplying defaults, because an empty string is a legitimate value.",
+            "NaN propagates silently through arithmetic, so one bad parse contaminates a whole calculation. Guard at the boundary with Number.isFinite after every parse and external input, and fail fast with a clear message rather than storing NaN and discovering it later in a report.",
+            "typeof has two famous inconsistencies: typeof null is object and typeof of a function is function. Use value === null for the null check, Array.isArray for arrays, and a check on the constructor or a brand property for class instances. A generic type check helper centralises these cases and documents the intent."
+          ]
+        },
+        {
+          "t": "Async and reference bugs",
+          "p": [
+            "A forgotten await leaves a floating promise, so the function returns before the work finishes and errors escape as unhandled rejections. Lint rules catch it. The subtler version is awaiting inside a forEach callback, which does not wait at all; replace forEach with for-of when awaiting, because forEach cannot be awaited.",
+            "Sequential awaits where the calls are independent turn a fast operation into a slow one. Two one-second requests awaited one after another take two seconds; started together with Promise.all they take one. Look for consecutive awaits with no data dependency between them, which is the signature of this bug.",
+            "Stale closures capture an old value. A handler created during the first render and never recreated keeps reading the initial state, so a counter appears stuck. The fix depends on the situation: re-create the handler when the value changes, read from a ref that is updated on each render, or pass the current value as an argument.",
+            "Unbounded concurrency launches thousands of requests at once and exhausts sockets or overwhelms the server. A limiter that keeps a fixed number of operations in flight, queuing the rest, is a small investment that prevents timeouts, memory spikes and rate limiting. The same reasoning applies to file descriptors and database connections."
+          ]
+        },
+        {
+          "t": "Mutation and state bugs",
+          "p": [
+            "Sharing an object and mutating it in one place changes it everywhere. A function that sorts its array argument reorders the caller's data, and a function that sets a property on a parameter modifies the caller's object. Copy at the boundary, or document the mutation and name the function so the side effect is obvious, such as sortInPlace.",
+            "Shallow copies do not protect nested objects: const next = { ...state, user: { ...state.user, name } } is safe for one level, but a nested array must also be copied. This is the most common source of bugs in state management, where a nested mutation makes the change invisible to a reference comparison and the interface does not update.",
+            "Comparing objects by reference to decide whether something changed fails when the same data is rebuilt each time. Either keep the identity stable by reusing unchanged objects, or compare the fields that matter. In reactive systems, storing derived data instead of computing it creates the same problem in a different form, because the two copies drift apart.",
+            "Global mutable state makes behaviour depend on history: tests interfere with each other, and a bug appears only when two features are used together. Passing dependencies in, or scoping state to a request or a component, removes the ordering dependence and makes failures reproducible."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Performance, Security and Quality Recipes",
+      "s": [
+        {
+          "t": "Performance recipes",
+          "p": [
+            "Debounce and throttle are the first tools for high-frequency events, and caching is the second. A memoised pure function removes repeated work, and a cache keyed by request removes repeated network calls. Measure with a profile before adding either, because a cache that is never hit adds memory cost and complexity with no benefit.",
+            "Batch work into one pass. Three separate loops over the same array are usually a single reduce; three sequential awaits are usually one Promise.all; many small DOM writes are usually one fragment. Batching reduces fixed overhead rather than per-item cost, which is why it often produces the largest gains for the least risk.",
+            "Do less in the hot path. Move invariant work out of a loop, avoid creating closures inside a tight loop, avoid try-catch in the innermost iteration when possible, and avoid allocations by reusing an object or writing into a preallocated typed array. Keep object shapes stable so the engine can specialise property access instead of falling back to a dictionary lookup.",
+            "Perceived performance is separate from measured performance. Render a skeleton immediately, keep interactions responsive by keeping long tasks short, and prefetch what the user is likely to need next. Users judge an application by how quickly it responds to their first action, not by how long a background job takes."
+          ]
+        },
+        {
+          "t": "Security recipes",
+          "p": [
+            "Never interpolate untrusted data into HTML, SQL, shell commands or templates. Use textContent for DOM text, parameterised queries for SQL, an argument array for subprocesses rather than a shell string, and a template engine that escapes by default. The rule is consistent: keep data in a data channel, never in a code channel.",
+            "Configure a content security policy with a script source list and no inline scripts, which turns an injection attempt into a blocked request rather than executed code. Add the security headers that suit the application: frame-ancestors to prevent clickjacking, a strict transport policy for HTTPS, and a referrer policy that does not leak full URLs to third parties.",
+            "Guard state-changing requests against cross-site request forgery with a same-site cookie, a per-session token, or a requirement for a non-simple header that forces a preflight. Because the browser attaches cookies automatically, a request that only relies on cookie presence can be triggered by any site the user visits.",
+            "Assume dependencies are part of the attack surface. Audit regularly, keep the lock file with integrity hashes, prefer a small set of well-maintained packages, and review the diff when a dependency is upgraded. Any package that can run code at install time can run code on the machine building the project, which is why lifecycle scripts deserve scrutiny."
+          ]
+        },
+        {
+          "t": "Quality recipes",
+          "p": [
+            "Make the invalid state unrepresentable. Prefer a discriminated union over several booleans that can contradict each other: { status: 'loading' } or { status: 'error', error } cannot express both at once, whereas isLoading and hasError can. This single technique removes whole categories of conditional bugs.",
+            "Name functions for what they mean, not how they work. fetchUser is better than getUserDataFromApi, because a name that mentions the transport must change when the transport does. Return values that are obvious from the name, and avoid returning null, undefined and false for three different failures, which forces every caller to guess.",
+            "Write the failing test first when a bug is reported. The test reproduces the defect, then passes once the fix is in, and stays as a guard against the same regression. A fix without a test is an invitation for the bug to return during the next refactor.",
+            "Keep changes small and reviewable. A change that mixes a behaviour fix with a formatting sweep cannot be reviewed reliably, because the meaningful lines are buried. Separate refactoring from behaviour change, and let the formatter handle style so the review is about logic, edge cases and naming."
+          ]
+        }
+      ]
+    }
+  ]
+}

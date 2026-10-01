@@ -1,0 +1,101 @@
+{
+  "part": "XIII. Deep Dives: Data and Asynchrony",
+  "chapters": [
+    {
+      "c": "Arrays, Collections and Iteration — Worked Examples",
+      "s": [
+        {
+          "t": "Transforming data with the array methods",
+          "p": [
+            "A map transforms one-to-one: const names = users.map((u) => u.name). A filter selects: const active = users.filter((u) => u.active). Chaining them reads as a pipeline: users.filter((u) => u.active).map((u) => u.name) returns the names of active users with no intermediate variables and no manual index bookkeeping.",
+            "flatMap combines a map and a one-level flatten, which is the tool for turning a list into many items: const tags = posts.flatMap((p) => p.tags). Deduplicating the result is a Set away: [...new Set(tags)]. This pair replaces the manual loop-with-push pattern in most code and produces a stable, readable transformation.",
+            "reduce builds a value from a list. Counting occurrences is the canonical example: words.reduce((acc, w) => { acc[w] = (acc[w] ?? 0) + 1; return acc; }, {}). Summing is the simplest: numbers.reduce((sum, n) => sum + n, 0). Always pass the initial value, otherwise an empty array throws, and prefer a Map for grouping when keys are not strings.",
+            "The failing callback trap is worth memorising: [1, 2, 3].map(parseInt) returns [1, NaN, NaN], because map passes the index as the second argument and parseInt reads it as a radix. The fix is an arrow wrapper: numbers.map((n) => parseInt(n, 10)). The same trap applies to any function whose second parameter is meaningful."
+          ]
+        },
+        {
+          "t": "Grouping, aggregating and sorting",
+          "p": [
+            "Grouping by a key uses reduce or the static Object.groupBy: const byTeam = Object.groupBy(players, (p) => p.team). Before that helper existed, the pattern was rows.reduce((acc, row) => ((acc[row.team] ??= []).push(row), acc), {}). The nullish assignment operator makes the first case concise, and a Map is preferred when the key type is not a string.",
+            "Aggregating several results in one pass avoids repeated iteration: const stats = rows.reduce((acc, r) => ({ count: acc.count + 1, total: acc.total + r.amount, max: Math.max(acc.max, r.amount) }), { count: 0, total: 0, max: 0 }). A single pass is clearer here than three separate map and reduce calls, and it is measurably faster for large inputs.",
+            "Sorting must be given a comparator for numbers: numbers.sort((a, b) => a - b) sorts ascending, and b - a sorts descending. Sorting strings with the default comparator is code-unit order, which puts uppercase before lowercase and is rarely wanted for display; Intl.Collator.compare gives alphabetical order for a locale. Sorting objects by a field uses the same shape, and sorting by several fields chains comparisons with a fallback.",
+            "sort mutates in place, so copy first when the original order matters: const sorted = [...rows].sort(cmp). This one-line difference is the source of many bugs where a table re-sorts its source data and the original order is lost. When sorting is frequent and the data is stable, sorting once on ingest and storing the order avoids repeated work."
+          ]
+        },
+        {
+          "t": "Iterators, generators and sets in practice",
+          "p": [
+            "A generator expresses a sequence lazily: function* range(start, end, step = 1) { for (let i = start; i < end; i += step) yield i; }. Because it produces values on demand, it can be consumed with for-of or spread and can represent an unbounded sequence that is only as expensive as the consumer asks for.",
+            "Generators also implement infinite or paginated sources cleanly: function* paginate(fetchPage) { let page = 1; for (;;) { const items = yield fetchPage(page); if (!items.length) return; page++; } }. A consumer that breaks early stops the requests, which is not possible with a callback-based pagination helper that has already scheduled the next call.",
+            "A Set is the right tool for membership and deduplication: const seen = new Set(); for (const id of ids) { if (seen.has(id)) continue; seen.add(id); process(id); }. A Map is the right tool for counting and grouping by arbitrary keys, offering has, get and set with near-constant cost and a reliable size.",
+            "WeakMap is the tool for attaching metadata to objects without retaining them: const owner = new WeakMap(); owner.set(element, id). When the element is removed from the document and nothing else references it, the entry disappears automatically. This is the recommended replacement for storing private data as a stray property on a DOM node, which leaks once the node is discarded."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Async and the Event Loop — Worked Examples",
+      "s": [
+        {
+          "t": "Promise composition patterns",
+          "p": [
+            "Sequential work awaits in order: const a = await first(); const b = await second(a);. Parallel work starts everything and collects: const [a, b] = await Promise.all([first(), second()]). Bounded parallelism processes many items a few at a time, which is the pattern for thousands of requests against a server you must not overwhelm.",
+            "A timeout is a race between the real work and a rejecting timer: const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), ms)); await Promise.race([fetchData(), timeout(5000)]). The timer keeps the process alive unless it is cleared, so a careful version stores the identifier and clears it in a finally block.",
+            "allSettled is the correct tool when partial success is acceptable: const results = await Promise.allSettled(urls.map(fetchUrl)); const ok = results.filter((r) => r.status === 'fulfilled').map((r) => r.value). One failure no longer discards every successful result, which makes bulk operations resilient.",
+            "Promise.any returns the first success and rejects only when all fail, which fits redundant sources: await Promise.any([primary(), fallback()]). The rejection reason is an AggregateError carrying every failure, so logging it shows why each source was unusable rather than only the last one."
+          ]
+        },
+        {
+          "t": "async and await recipes and error handling",
+          "p": [
+            "Await inside a loop is sequential and is correct when order or rate matters: for (const id of ids) { await save(id); }. For independent work this is needlessly slow, and the fix is to map to promises and await them together, optionally in chunks to bound concurrency.",
+            "Errors from an awaited call are thrown into the surrounding try, so one try around a group of awaits handles the whole sequence. When a failure should not abort the batch, wrap each call individually: const result = await save(id).then(() => 'ok', (err) => ({ error: err.message })). The two-argument then keeps the failure local without a nested try.",
+            "A missing await is a silent bug because the promise is created and discarded. Linting rules that require awaiting or explicitly voiding a promise catch it. When deliberately firing and forgetting, attach a catch to avoid an unhandled rejection: void doWork().catch(reportError).",
+            "Parallel with a concurrency limit is written once and reused: async function mapLimit(items, limit, fn) { const out = []; const queue = [...items.entries()]; const workers = Array.from({ length: limit }, async () => { for (const [i, item] of queue.splice(0)) out[i] = await fn(item); }); await Promise.all(workers); return out; }. This preserves result order while keeping at most limit operations in flight."
+          ]
+        },
+        {
+          "t": "Concurrency, queues and cancellation",
+          "p": [
+            "An AbortController propagates cancellation into fetch and any custom API that accepts a signal: const c = new AbortController(); fetch(url, { signal: c.signal }); c.abort(). The rejection carries the name AbortError, which must be distinguished from a genuine failure so that a cancelled request is not reported as an error to the user.",
+            "Cancelling on unmount or teardown prevents state updates on a discarded component and drops work whose result nobody wants. The pattern is to create the controller in the effect, pass the signal to every request, and abort in the cleanup function, which the framework calls when the component is removed or the dependencies change.",
+            "A simple serial queue guarantees that asynchronous steps run one at a time without interleaving: let chain = Promise.resolve(); const enqueue = (task) => (chain = chain.then(task, task));. This is the tool for writing to a shared resource where overlapping writes would corrupt state, and it needs no library.",
+            "The event loop ordering that causes confusion is microtask versus task. Promise callbacks and the code after an await run in the microtask queue, which drains completely before the next timer or render. A recursive promise that schedules another promise can therefore starve timers and rendering, so a self-rescheduling loop should end with a task, such as setTimeout with a zero delay, rather than another promise."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Modules and Code Organisation — Worked Examples",
+      "s": [
+        {
+          "t": "Drawing good module boundaries",
+          "p": [
+            "A module should hide a decision, not merely group files by type. A module that owns everything about authentication, including its HTTP calls, token storage and error mapping, can change its internals freely because only its small public surface is imported elsewhere. A module that exports twenty unrelated helpers provides no boundary at all.",
+            "Named exports are preferred for libraries because they are statically analysable and tree-shakeable, and they let a consumer rename precisely. A default export is convenient for a primary value such as a component or a class, but it makes automated refactoring harder and can hide a large surface behind one name.",
+            "A barrel file re-exports from several modules to present one entry point: export * from './users.js'; export * from './teams.js';. Barrels improve the import experience and hurt tree shaking and startup, because importing one name may pull the whole barrel and can create circular imports. Use them at the public edge of a package, not inside every folder.",
+            "Cycles arise when two modules import each other. Because bindings are hoisted, one side may observe an incomplete module during evaluation, which usually shows up as undefined at import time. Break the cycle by extracting the shared value into a third module that both import, or by moving the dependency behind a function call that happens later."
+          ]
+        },
+        {
+          "t": "Dynamic import and lazy loading",
+          "p": [
+            "Dynamic import returns a promise and can take a computed specifier: const { parse } = await import('./parsers/csv.js'). A bundler detects the call and emits a separate chunk, so the code is fetched only when the branch runs, which is the mechanism behind lazy routes and optional features.",
+            "A practical use is to load a heavy dependency on demand: async function exportPdf(rows) { const { makePdf } = await import('./pdf.js'); return makePdf(rows); }. Users who never export do not pay for the library, and the main bundle stays small. The cost is an extra request on first use, which is a good trade for a feature used by a minority of sessions.",
+            "Lazy loading a route lets the initial page render without the code for pages the user has not visited: const Page = lazy(() => import('./Page.js')). Combined with a suspense boundary that shows a placeholder, the interface stays responsive while the chunk downloads. Prefetching the likely next chunk on hover or idle time removes the wait without blocking anything.",
+            "Because imported modules are cached, a dynamic import in a hot path resolves immediately after the first call, but the first call still awaits a microtask. Code that must be synchronous, such as a module-level initialiser that cannot be async, cannot use dynamic import and must use a static import instead."
+          ]
+        },
+        {
+          "t": "Testability and dependency seams",
+          "p": [
+            "Imports are captured at module evaluation, so a test cannot easily replace a directly imported function. The fix is to combine imports with injection: import { send } from './mail.js'; export function makeNotifier(mailer = send) { return (msg) => mailer(msg); }. Production uses the default, and the test passes a spy, so no global patching is required.",
+            "Keeping side effects out of module scope makes modules importable in a test or a tool without triggering network calls or file writes. A module that only defines functions and values is trivially importable; one that connects to a database on import forces every importer to pay that cost and makes the module impossible to test in isolation.",
+            "An entry point should wire the pieces together and do almost nothing else. Composition at the edge, where concrete implementations are chosen and passed inward, keeps the core logic free of environment assumptions. This is the same idea as a seam in testing, applied at application scale.",
+            "Circular imports, module-scope side effects and hidden singletons are the three patterns that most often make a codebase hard to test. Recognising them early and preferring explicit parameters over ambient state keeps the module graph acyclic and the behaviour predictable."
+          ]
+        }
+      ]
+    }
+  ]
+}

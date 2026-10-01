@@ -1,0 +1,103 @@
+{
+  "part": "XII. Deep Dives: Core Language",
+  "chapters": [
+    {
+      "c": "Types, Coercion and Equality — Worked Examples",
+      "s": [
+        {
+          "t": "Reading coercion like the engine does",
+          "p": [
+            "The abstract operation ToPrimitive is what every surprising coercion goes through. When an object meets an operator that needs a primitive, the engine calls Symbol.toPrimitive if present, otherwise valueOf, otherwise toString, using the hint number, string or default. Arrays have a toString that joins with commas, which is why [1, 2] + [3, 4] evaluates to the string 1,23,4: both sides become strings and the plus concatenates them. An empty array becomes the empty string, so [] + [] is the empty string and [] + {} is the string [object Object].",
+            "The classic puzzle {} + [] deserves its own explanation. At the start of a statement the braces are parsed as an empty block, so the expression is the unary plus applied to an empty array, which converts to the number zero. Wrap the same text in parentheses and it becomes an object plus an array, producing the string [object Object]. This is proof that the parse position changes behaviour, and a good reason never to start a statement with a brace or bracket.",
+            "The number conversions follow a documented table. undefined becomes NaN, null becomes zero, an empty string becomes zero, a whitespace-only string becomes zero, and a non-numeric string becomes NaN. The boolean conversions are a fixed list of falsy values: false, zero, negative zero, the empty string, NaN, null and undefined. Everything else, including empty arrays, empty objects and the string zero, is truthy.",
+            "A practical debugging technique is to ask what type each operand actually is before the operator runs. Printing typeof and the value at the boundary usually explains the surprise immediately. When a comparison produces a result you cannot explain, rewrite both sides as explicit Number or String conversions and the behaviour becomes predictable."
+          ]
+        },
+        {
+          "t": "Choosing between the equality operators in real code",
+          "p": [
+            "The strict operator is the default. Use value === null to check for exactly null, and value == null as the single idiomatic loose comparison, because it is true for both null and undefined and false for zero and the empty string. That single exception exists because the two absence values are interchangeable in most code.",
+            "Structural comparison has no built-in operator. A shallow field comparison reads: a.id === b.id && a.name === b.name. For arrays, compare length first and then every element, or compare a canonical serialization such as JSON.stringify when the data is JSON-safe and key order is stable. Remember that JSON.stringify ignores key order differences only when the objects were built in the same order, so it is a convenience rather than a specification.",
+            "NaN breaks the usual equality rules because NaN === NaN is false. Detect it with Number.isNaN, not with === or with the global isNaN, which coerces its argument and therefore reports true for the string abc. The pattern Number.isNaN(parsed) is the correct guard after a numeric parse.",
+            "Sorting comparisons need a number, not a boolean. A comparator returning a.name < b.name yields false in both the less-than and greater-than cases, so the sort silently does nothing. Return a numeric difference, or a -1, 0 and 1 derived from the comparison. For strings in other languages, use Intl.Collator, which knows that accented letters sort near their base forms and that some locales order characters differently."
+          ]
+        },
+        {
+          "t": "Numbers, money and precision recipes",
+          "p": [
+            "Floating point cannot represent most decimal fractions exactly. The demonstration is 0.1 + 0.2 === 0.30000000000000004. For display, format with toFixed or Intl.NumberFormat. For comparison, use a tolerance such as Math.abs(a - b) < Number.EPSILON, or better, avoid the situation by not comparing computed floats for exact equality at all.",
+            "For money, store the smallest integer unit: cents, satoshi, paise. A price of 19.99 is held as 1999, and all arithmetic stays in integers until display, when a single division by 100 formats the result. Where fractional units are unavoidable, use a decimal library that represents numbers as a coefficient and a scale, because no binary floating point representation can hold 0.1 exactly.",
+            "Rounding has several modes and the default surprises people. Math.round rounds halves away from zero for positive numbers, but the negative half case and bankers rounding differ, so a financial calculation must choose deliberately. Math.trunc removes the fraction toward zero, Math.floor goes down, Math.ceil goes up. Formatting with Intl.NumberFormat and a fixed maximum fraction digit count is the safest route to a user-facing string.",
+            "Large identifiers exceed the safe integer range and silently lose precision through JSON and arithmetic. Store them as strings end to end, or convert with BigInt for arithmetic and convert back with toString for transport. The failure mode is quiet: an identifier that differs only in its last digits becomes a different, wrong record.",
+            "Randomness for anything security-sensitive uses crypto.getRandomValues rather than Math.random. A uniform integer in a range is derived by rejection sampling or by a helper library, because scaling a random float introduces bias near the boundaries and is unsuitable for tokens or lotteries."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Functions, Closures and this — Worked Examples",
+      "s": [
+        {
+          "t": "Closures in practice",
+          "p": [
+            "A counter factory demonstrates captured state: function counter() { let n = 0; return () => ++n; }. Each call to counter creates a fresh binding, so two counters from the factory do not share n. This is the mechanism behind private state, memoisation caches and configuration captured at creation time.",
+            "A once wrapper shows closure over a flag: function once(fn) { let called = false; let result; return (...args) => { if (!called) { called = true; result = fn(...args); } return result; }; }. The wrapper returns the cached result on later calls, which is useful for expensive initialisation and for idempotent setup.",
+            "Memoisation captures a cache keyed by arguments: function memo(fn) { const cache = new Map(); return (key, ...rest) => { if (!cache.has(key)) cache.set(key, fn(key, ...rest)); return cache.get(key); }; }. Two cautions apply. The function must be pure, or the cache returns stale results, and the cache must be bounded for long-running processes, otherwise it grows without limit.",
+            "Debounce and throttle are closures over a timer: function debounce(fn, ms) { let t; return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); }; }. The captured t is what allows a later call to cancel an earlier one, which is why the timer identifier must live in the closure rather than as a module-level variable shared by every caller.",
+            "The classic loop bug is a closure over a var loop variable: with var, every callback shares one binding and all see the final value. Switching to let creates a new binding per iteration, and the callbacks capture the value for their own iteration. This is a specification guarantee, not a compiler trick."
+          ]
+        },
+        {
+          "t": "this and binding recipes",
+          "p": [
+            "The four call forms determine this: a plain call gives undefined in strict mode, a method call gives the receiver, a call with new gives the fresh object, and an arrow inherits from its enclosing scope. The bug appears when a method is detached from its receiver, such as passing obj.save to a scheduler; the fix is obj.save.bind(obj) or a wrapper arrow.",
+            "A class field arrow binds once per instance: class Timer { tick = () => { this.count++; }; }. Because the field is initialised in the constructor, the arrow already closes over the instance, so tick can be passed anywhere. The alternative, binding in the constructor, achieves the same result explicitly and is still common in older codebases.",
+            "call and apply borrow a method with a different receiver: Array.prototype.slice.call(arrayLike) converted array-like values before spread existed, and Math.max.apply(null, numbers) spread an array into arguments before Math.max accepted spread. Both are now written as Array.from(arrayLike) and Math.max(...numbers), which are clearer and faster.",
+            "Partial application fixes leading arguments: const double = multiply.bind(null, 2). Currying instead produces a chain of single-argument functions, and both are useful for building specialised functions from general ones. A named wrapper such as function double(n) { return multiply(2, n); } is often more readable than either and should be preferred when the function is used more than once."
+          ]
+        },
+        {
+          "t": "Function shapes, arity and metaprogramming",
+          "p": [
+            "A function's length property reports the number of parameters before the first default or rest, which is a weak signal but is used by some libraries to decide how to invoke a callback. Relying on it is fragile; an explicit options object avoids the question entirely.",
+            "Higher-order functions that wrap others, called decorators or combinators, are the backbone of composition. A logging wrapper, a retry wrapper, a timing wrapper and a validation wrapper all share the shape: they accept a function and return a new function with the same contract. Writing them once and reusing them beats repeating the concern at every call site.",
+            "Tail calls are not generally optimised in JavaScript, so deep recursion throws a stack overflow. Convert deep recursion to a loop, or to an explicit stack when traversing a tree. Where recursion is the clearest expression and the depth is bounded by the data, such as a small directory tree, it is fine to keep.",
+            "Argument validation at the boundary keeps the interior simple. A small assert helper that throws a TypeError with the parameter name turns a confusing downstream failure into a precise message, and it disappears from production builds if the bundler strips the checks."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Objects, Prototypes and Classes — Worked Examples",
+      "s": [
+        {
+          "t": "Choosing an object creation pattern",
+          "p": [
+            "An object literal is right for a fixed shape record: const user = { id: 1, name: 'Ada' }. A factory function is right when construction involves logic or defaults: function createUser(raw) { return { id: raw.id, name: raw.name ?? 'anonymous' }; }. A class is right when many instances share behaviour and identity through a prototype, or when the type is part of the public API.",
+            "Object.create is the direct expression of delegation and is useful for prototype-based inheritance without classes: const admin = Object.create(userPrototype); admin.role = 'admin'. Every property lookup on admin that misses falls through to userPrototype, which is how shared behaviour works with no copying.",
+            "structuredClone is the correct deep copy for plain data, and it handles nested objects, arrays, Map, Set, Date and typed arrays. It cannot clone functions, class instances lose their prototype, and DOM nodes are rejected. For data with methods, write an explicit clone that reconstructs the instance, rather than hoping a generic copy preserves behaviour.",
+            "A plain object is the right dictionary only when keys are known strings and the shape is stable. When keys are dynamic, when frequent additions and deletions occur, or when the key type is not a string, a Map is faster and safer because it does not consult the prototype chain and cannot collide with inherited names such as constructor or toString."
+          ]
+        },
+        {
+          "t": "Prototypes versus classes in real code",
+          "p": [
+            "Before class syntax, inheritance was written by linking prototypes: function Animal(name) { this.name = name; } Animal.prototype.speak = function () { return this.name; }; function Dog(name) { Animal.call(this, name); } Dog.prototype = Object.create(Animal.prototype); Dog.prototype.constructor = Dog;. Reading this pattern is still necessary because a great deal of library code predates classes, and the class syntax compiles down to exactly these steps.",
+            "The class form is the same mechanism with clearer syntax: class Dog extends Animal { speak() { return super.speak() + ' woof'; } }. What changes is not semantics but readability, plus the guarantees that a class cannot be called without new and that derived constructors must call super before touching this.",
+            "Mixing behaviour without a shared base uses functions that copy methods onto a prototype: function withTimestamp(Base) { return class extends Base { stamp() { return Date.now(); } }; }. This is a mixin, and it composes better than deep hierarchies because each concern is independent and can be applied in any order.",
+            "Composition is usually the better default. A class that holds a logger, a repository and a cache and delegates to them is easier to test than one that inherits those behaviours, because each collaborator can be replaced independently. Reach for inheritance when there is a genuine is-a relationship and the base class was designed for extension."
+          ]
+        },
+        {
+          "t": "Encapsulation and immutability patterns",
+          "p": [
+            "Private class fields with a leading hash are the platform's real encapsulation: class Wallet { #balance = 0; deposit(n) { this.#balance += n; } }. The field is unreachable from outside the class, even through bracket access, and it cannot be shadowed by a subclass.",
+            "Closures provide encapsulation without classes: function wallet(initial = 0) { let balance = initial; return { deposit: (n) => (balance += n), read: () => balance }; }. The returned object exposes behaviour but not the variable, which is the module pattern in miniature and predates private fields.",
+            "A WeakMap as a side table attaches private data to objects you do not control: const data = new WeakMap(); function attach(obj, value) { data.set(obj, value); }. The entry disappears when the object is collected, so nothing leaks, and the private value never appears as an enumerable property that serialisation or iteration would expose.",
+            "For immutability, return new objects from updates: function rename(user, name) { return { ...user, name }; }. Freeze shared configuration with Object.freeze to catch accidental writes in strict mode, and reserve deep freezing for values that are genuinely constant, because freezing has a cost and blocks extension."
+          ]
+        }
+      ]
+    }
+  ]
+}
