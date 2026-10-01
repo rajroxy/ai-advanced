@@ -80,6 +80,8 @@ export interface ModelConfig {
   contextChunks: number;
   /** Book-only mode: cite everything, report gaps instead of filling them. */
   strictGrounding: boolean;
+  /** Abort when nothing arrives from the model host for this long (ms). */
+  idleTimeoutMs: number;
 }
 
 export interface PlannerConfig {

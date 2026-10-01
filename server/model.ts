@@ -22,6 +22,12 @@ export interface ModelConfig {
    * must be reported as "[not in book]" rather than filled from memory.
    */
   strictGrounding: boolean;
+  /**
+   * Abort a request when nothing arrives for this long, in milliseconds. A slow
+   * model on CPU keeps resetting the timer as tokens stream in; a host that has
+   * gone away fails with a clear message instead of spinning forever.
+   */
+  idleTimeoutMs: number;
 }
 
 export interface PlannerConfig {
@@ -40,6 +46,7 @@ export const DEFAULT_MODEL: ModelConfig = {
   maxTokens: 2048,
   contextChunks: 10,
   strictGrounding: true,
+  idleTimeoutMs: 300_000,
 };
 
 export const DEFAULT_PLANNER: PlannerConfig = {
@@ -85,6 +92,64 @@ export interface ChatOptions {
 
 const trimBase = (url: string) => url.replace(/\/+$/, "");
 
+/**
+ * Watches for silence. Every `touch()` (one per streamed chunk, or once when a
+ * non-streaming reply lands) pushes the deadline out, so a genuinely slow local
+ * model is never killed — only a host that stops talking is.
+ */
+function idleGuard() {
+  const cfg = getModelConfig();
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let timedOut = false;
+  const touch = () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, cfg.idleTimeoutMs);
+  };
+  touch();
+  return {
+    signal: controller.signal,
+    touch,
+    stop: () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+    },
+    timedOut: () => timedOut,
+  };
+}
+
+/** Merge the caller's signal with the idle guard's, without needing AbortSignal.any. */
+function combineSignals(caller: AbortSignal | undefined, idle: AbortSignal): AbortSignal {
+  if (!caller) return idle;
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (caller.aborted || idle.aborted) controller.abort();
+  caller.addEventListener("abort", abort, { once: true });
+  idle.addEventListener("abort", abort, { once: true });
+  return controller.signal;
+}
+
+/** Turn an abort caused by the guard into an actionable message. */
+function friendlyError(
+  err: unknown,
+  guard: { timedOut: () => boolean },
+  caller: AbortSignal | undefined,
+): Error {
+  if (guard.timedOut() && !caller?.aborted) {
+    const cfg = getModelConfig();
+    return new Error(
+      `No response from the model host at ${cfg.baseUrl} for ${Math.round(
+        cfg.idleTimeoutMs / 1000,
+      )}s. Check that it is running and that the model name exists ` +
+        `(a 7B model on CPU can be very slow — a 1.5B–3B model is much faster).`,
+    );
+  }
+  return err instanceof Error ? err : new Error(String(err));
+}
+
 async function chatRequest(
   messages: ChatMessage[],
   opts: ChatOptions,
@@ -117,11 +182,23 @@ async function chatRequest(
 
 /** One-shot completion. */
 export async function chat(messages: ChatMessage[], opts: ChatOptions = {}): Promise<string> {
-  const res = await chatRequest(messages, opts, false);
-  const data = (await res.json()) as {
-    choices?: { message?: { content?: string } }[];
-  };
-  return data.choices?.[0]?.message?.content?.trim() ?? "";
+  const guard = idleGuard();
+  try {
+    const res = await chatRequest(
+      messages,
+      { ...opts, signal: combineSignals(opts.signal, guard.signal) },
+      false,
+    );
+    guard.touch();
+    const data = (await res.json()) as {
+      choices?: { message?: { content?: string } }[];
+    };
+    return data.choices?.[0]?.message?.content?.trim() ?? "";
+  } catch (err) {
+    throw friendlyError(err, guard, opts.signal);
+  } finally {
+    guard.stop();
+  }
 }
 
 /** Streaming completion, yielding token deltas. */
@@ -129,35 +206,47 @@ export async function* chatStream(
   messages: ChatMessage[],
   opts: ChatOptions = {},
 ): AsyncGenerator<string> {
-  const res = await chatRequest(messages, opts, true);
-  if (!res.body) {
-    yield await chat(messages, opts);
-    return;
-  }
-  const reader = res.body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() ?? "";
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed.startsWith("data:")) continue;
-      const payload = trimmed.slice(5).trim();
-      if (payload === "[DONE]") return;
-      try {
-        const json = JSON.parse(payload) as {
-          choices?: { delta?: { content?: string } }[];
-        };
-        const delta = json.choices?.[0]?.delta?.content;
-        if (delta) yield delta;
-      } catch {
-        /* partial JSON across chunks — ignore */
+  const guard = idleGuard();
+  try {
+    const res = await chatRequest(
+      messages,
+      { ...opts, signal: combineSignals(opts.signal, guard.signal) },
+      true,
+    );
+    if (!res.body) {
+      yield await chat(messages, opts);
+      return;
+    }
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      guard.touch();
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed.startsWith("data:")) continue;
+        const payload = trimmed.slice(5).trim();
+        if (payload === "[DONE]") return;
+        try {
+          const json = JSON.parse(payload) as {
+            choices?: { delta?: { content?: string } }[];
+          };
+          const delta = json.choices?.[0]?.delta?.content;
+          if (delta) yield delta;
+        } catch {
+          /* partial JSON across chunks — ignore */
+        }
       }
     }
+  } catch (err) {
+    throw friendlyError(err, guard, opts.signal);
+  } finally {
+    guard.stop();
   }
 }
 

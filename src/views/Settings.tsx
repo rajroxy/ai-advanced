@@ -66,6 +66,7 @@ export default function Settings() {
     maxTokens: draft.maxTokens ?? model?.maxTokens ?? 2048,
     contextChunks: draft.contextChunks ?? model?.contextChunks ?? 10,
     strictGrounding: draft.strictGrounding ?? model?.strictGrounding ?? true,
+    idleTimeoutMs: draft.idleTimeoutMs ?? model?.idleTimeoutMs ?? 300_000,
   };
   const currentPlanner: PlannerConfig = {
     enabled: plannerDraft.enabled ?? planner?.enabled ?? false,
@@ -220,7 +221,21 @@ export default function Settings() {
                   onChange={(e) => setDraft({ ...draft, contextChunks: Number(e.target.value) })}
                 />
               </div>
+              <div>
+                <Label>Silence timeout (s)</Label>
+                <Input
+                  type="number"
+                  min="10"
+                  value={Math.round(current.idleTimeoutMs / 1000)}
+                  onChange={(e) => setDraft({ ...draft, idleTimeoutMs: Number(e.target.value) * 1000 })}
+                />
+              </div>
             </div>
+            <p className="text-[11px] leading-relaxed text-paper-300/40">
+              If the model sends nothing for this long the run stops with an error instead of
+              spinning forever. Raise it for a large model on CPU; a slow model that keeps
+              streaming is never cut off.
+            </p>
 
             <div className="rounded-xl border border-white/[0.06] bg-ink-900/50 p-3">
               <label className="flex items-start gap-2.5">
@@ -388,7 +403,8 @@ export default function Settings() {
                 title="Ollama — easiest, no GGUF file"
                 lines={[
                   "# install from ollama.com, then:",
-                  "ollama pull qwen2.5-coder:7b",
+                  "ollama pull qwen2.5-coder:1.5b   # ~1 GB — fits any machine",
+                  "ollama pull qwen2.5-coder:7b     # ~4.7 GB — needs ~8 GB free RAM",
                   "ollama serve",
                 ]}
                 url="http://127.0.0.1:11434/v1"
@@ -418,6 +434,13 @@ export default function Settings() {
                 url="the /v1 URL it prints"
               />
             </div>
+
+            <p className="mt-3 text-[11px] leading-relaxed text-paper-300/45">
+              If a model never finishes loading — <span className="font-mono">ollama ps</span>{" "}
+              stays empty and requests hang for minutes — it does not fit in your RAM. Pull a
+              smaller one. The book supplies the knowledge, so a 1.5B model is plenty; the size
+              only buys speed and writing polish, never facts.
+            </p>
 
             <div className="mt-4 rounded-xl border border-ember-500/20 bg-ember-500/[0.06] p-3 text-[11px] leading-relaxed text-paper-300/60">
               <p className="font-medium text-ember-400/90">Run the app on your own machine</p>

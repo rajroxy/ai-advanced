@@ -139,7 +139,9 @@ async function planSections(
     const reply = await chat(outlineMessages(request, bookHint, sourceBlock, memory, strict), {
       model: planner.enabled && planner.model ? planner.model : getModelConfig().model,
       temperature: 0.3,
-      maxTokens: planner.enabled ? planner.maxTokens : 900,
+      // An outline is short; keeping the budget small is what makes the
+      // planning step quick on a CPU-only machine.
+      maxTokens: planner.enabled ? planner.maxTokens : 600,
     });
     const parsed = extractJson<{
       title?: string;
