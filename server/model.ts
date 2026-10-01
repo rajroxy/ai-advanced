@@ -16,6 +16,12 @@ export interface ModelConfig {
   maxTokens: number;
   /** How many book passages to retrieve per step. */
   contextChunks: number;
+  /**
+   * Book-only mode. When on, the model is told that anything it knows from
+   * training is unavailable, every factual sentence must be cited, and a gap
+   * must be reported as "[not in book]" rather than filled from memory.
+   */
+  strictGrounding: boolean;
 }
 
 export interface PlannerConfig {
@@ -28,11 +34,12 @@ export interface PlannerConfig {
 
 export const DEFAULT_MODEL: ModelConfig = {
   baseUrl: "http://127.0.0.1:11434/v1",
-  model: "qwen2.5:7b",
+  model: "qwen2.5-coder:7b",
   apiKey: "local",
   temperature: 0.4,
   maxTokens: 2048,
   contextChunks: 10,
+  strictGrounding: true,
 };
 
 export const DEFAULT_PLANNER: PlannerConfig = {

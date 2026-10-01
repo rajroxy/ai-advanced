@@ -1,8 +1,10 @@
 import { existsSync, readFileSync } from "node:fs";
 import { extname, join, resolve } from "node:path";
 import {
+  bookFileName,
   bookOutline,
   deleteBook,
+  exportBook,
   getBook,
   getBookProfile,
   importBook,
@@ -11,6 +13,7 @@ import {
   search,
   type RawBook,
 } from "./books.ts";
+import { listBundles, loadBundledBook } from "./bookSource.ts";
 import { backupDb, dbStatus, stats } from "./db.ts";
 import {
   getModelConfig,
@@ -58,6 +61,16 @@ const json = (data: unknown, status = 200) =>
   Response.json(data as Record<string, unknown>, { status, headers: CORS });
 
 const fail = (message: string, status = 400) => json({ error: message }, status);
+
+/** A JSON payload offered as a file download. */
+const download = (data: unknown, filename: string) =>
+  new Response(JSON.stringify(data, null, 2), {
+    headers: {
+      ...CORS,
+      "content-type": "application/json; charset=utf-8",
+      "content-disposition": `attachment; filename="${filename}"`,
+    },
+  });
 
 type Ctx = { params: Record<string, string>; req: Request; url: URL };
 type Handler = (ctx: Ctx) => Response | Promise<Response>;
@@ -152,6 +165,28 @@ route("POST", "/api/books/import-sqlite", async ({ req }) => {
     );
   } catch (err) {
     return fail(err instanceof Error ? err.message : String(err));
+  }
+});
+
+/* Bundled books: the book files that ship with the engine, offered as a single
+ * downloadable JSON file that the Import dialog can read straight back. */
+route("GET", "/api/books/bundles", () => json({ bundles: listBundles() }));
+
+route("GET", "/api/books/bundled/:source", ({ params }) => {
+  try {
+    const bundle = loadBundledBook(params.source);
+    return download(bundle.book, bookFileName(bundle.title));
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : String(err), 404);
+  }
+});
+
+route("GET", "/api/books/:id/export", ({ params }) => {
+  try {
+    const book = exportBook(params.id);
+    return download(book, bookFileName(book.title));
+  } catch (err) {
+    return fail(err instanceof Error ? err.message : String(err), 404);
   }
 });
 

@@ -1,5 +1,16 @@
 import { useEffect, useState } from "react";
-import { Check, Cpu, Loader2, PlugZap, RefreshCw, Save, Terminal, X, Zap } from "lucide-react";
+import {
+  Check,
+  Cpu,
+  Loader2,
+  PlugZap,
+  RefreshCw,
+  Save,
+  Scale,
+  Terminal,
+  X,
+  Zap,
+} from "lucide-react";
 import { useApp } from "../state";
 import { api, type ModelConfig, type ModelStatus, type PlannerConfig } from "../lib/api";
 import {
@@ -54,6 +65,7 @@ export default function Settings() {
     temperature: draft.temperature ?? model?.temperature ?? 0.4,
     maxTokens: draft.maxTokens ?? model?.maxTokens ?? 2048,
     contextChunks: draft.contextChunks ?? model?.contextChunks ?? 10,
+    strictGrounding: draft.strictGrounding ?? model?.strictGrounding ?? true,
   };
   const currentPlanner: PlannerConfig = {
     enabled: plannerDraft.enabled ?? planner?.enabled ?? false,
@@ -209,6 +221,27 @@ export default function Settings() {
                 />
               </div>
             </div>
+
+            <div className="rounded-xl border border-white/[0.06] bg-ink-900/50 p-3">
+              <label className="flex items-start gap-2.5">
+                <input
+                  type="checkbox"
+                  checked={current.strictGrounding}
+                  onChange={(e) => setDraft({ ...draft, strictGrounding: e.target.checked })}
+                  className="mt-0.5 accent-ember-500"
+                />
+                <span>
+                  <span className="block text-sm text-paper-100">Book-only strict mode</span>
+                  <span className="block text-[11px] leading-relaxed text-paper-300/50">
+                    Tells the model that anything it knows from training is unavailable: every
+                    factual sentence must cite a retrieved passage, and anything the book does not
+                    cover is reported as a gap ({`[not in book]`}) instead of being filled from
+                    memory. Leave this on unless you deliberately want the model to reason beyond
+                    the book.
+                  </span>
+                </span>
+              </label>
+            </div>
           </div>
         </Card>
 
@@ -262,6 +295,42 @@ export default function Settings() {
                 </div>
               </div>
             )}
+          </Card>
+
+          <Card className="p-5">
+            <div className="mb-1 flex items-center gap-2 text-sm text-paper-100">
+              <Scale className="h-4 w-4 text-amber-300" /> Why the weights are not "cleaned"
+            </div>
+            <p className="text-[11px] leading-relaxed text-paper-300/50">
+              A model's world knowledge and its language ability are stored in the same numbers, so
+              there is no way to delete the facts and keep the grammar. Fine-tuning to forget,
+              abliteration and pruning all cause catastrophic forgetting instead — the model gets
+              worse at everything, not cleaner. Quantisation is lossy number compression, not
+              knowledge removal. "Language + reasoning only" is not a carveable subset of the
+              weights.
+            </p>
+            <p className="mt-2 text-[11px] leading-relaxed text-paper-300/50">
+              So this engine does not try. Knowledge lives outside the weights, in the SQLite index,
+              and the model never sees more than the handful of passages a query retrieves. Strict
+              mode plus the grounding readout ({`grounded N/M`}) is what makes that claim
+              checkable: an answer that is not traceable to a passage is visible as uncited text or
+              an unknown citation.
+            </p>
+            <p className="mt-2 text-[11px] leading-relaxed text-paper-300/45">
+              You can still edit the model, and the project gives you the tools:
+            </p>
+            <pre className="mt-2 overflow-x-auto rounded-lg bg-ink-950/70 p-2.5 font-mono text-[11px] text-paper-200/75">
+              {"bun run model:book          # wrap a model with this book's rules\n" +
+                "bun run model:book llama3.2:3b"}
+            </pre>
+            <p className="mt-2 text-[11px] leading-relaxed text-paper-300/45">
+              It writes a Modelfile, runs <span className="font-mono">ollama create</span> to build a
+              derived model you own, and exports a fine-tuning dataset built only from this book
+              plus the exact training commands. Fine-tuning puts the book into the weights; it does
+              not delete the base model's other knowledge, because the parameters are shared. Only a
+              model trained from scratch on the book alone has none — that dataset is the starting
+              point for it.
+            </p>
           </Card>
 
           <Card className="p-5">

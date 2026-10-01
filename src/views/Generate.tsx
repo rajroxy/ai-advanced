@@ -25,6 +25,7 @@ import {
   Button,
   Card,
   EmptyState,
+  Input,
   Label,
   PageHeader,
   Snippet,
@@ -49,6 +50,7 @@ export default function Generate() {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [mode, setMode] = useState<Mode>("auto");
   const [maxSections, setMaxSections] = useState(6);
+  const [newProject, setNewProject] = useState("");
 
   const [output, setOutput] = useState("");
   const [sources, setSources] = useState<SourceRef[]>([]);
@@ -56,7 +58,13 @@ export default function Generate() {
   const [status, setStatus] = useState("");
   const [section, setSection] = useState<{ index: number; total: number; title: string } | null>(null);
   const [running, setRunning] = useState(false);
-  const [grounding, setGrounding] = useState<{ paragraphs: number; cited: number; invalid: number } | null>(null);
+  const [grounding, setGrounding] = useState<{
+    paragraphs: number;
+    cited: number;
+    invalid: number;
+    gaps?: number;
+    strict?: boolean;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -82,6 +90,14 @@ export default function Generate() {
 
   const toggleBook = (id: string) =>
     setBookIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  async function createProject() {
+    if (!newProject.trim()) return;
+    const { project } = await api.createProject(newProject);
+    setNewProject("");
+    await reloadAll();
+    setProjectId(project.id);
+  }
 
   async function run() {
     if (!request.trim() || running) return;
@@ -265,6 +281,24 @@ export default function Generate() {
               </div>
             </div>
 
+            <div className="mt-3">
+              <Label>Or create a project</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={newProject}
+                  onChange={(e) => setNewProject(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && void createProject()}
+                  placeholder="e.g. C# CSV tool"
+                />
+                <Button variant="secondary" onClick={() => void createProject()} disabled={!newProject.trim()}>
+                  <Plus className="h-4 w-4" /> Create
+                </Button>
+              </div>
+              <p className="mt-1 text-[11px] text-paper-300/40">
+                A project remembers facts, decisions and past outputs across sessions.
+              </p>
+            </div>
+
             {mode !== "single" && (
               <div className="mt-4">
                 <Label>Sections for long output: {maxSections}</Label>
@@ -343,8 +377,10 @@ export default function Generate() {
                           : "mint"
                       }
                     >
-                      grounded {grounding.cited}/{grounding.paragraphs}
+                      {grounding.strict ? "book-only · " : ""}grounded {grounding.cited}/
+                      {grounding.paragraphs}
                       {grounding.invalid > 0 ? ` · ${grounding.invalid} unknown cite` : ""}
+                      {grounding.gaps ? ` · ${grounding.gaps} gap${grounding.gaps > 1 ? "s" : ""} flagged` : ""}
                     </Badge>
                   )}
                 </span>

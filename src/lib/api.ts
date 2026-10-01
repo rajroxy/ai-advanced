@@ -78,6 +78,8 @@ export interface ModelConfig {
   temperature: number;
   maxTokens: number;
   contextChunks: number;
+  /** Book-only mode: cite everything, report gaps instead of filling them. */
+  strictGrounding: boolean;
 }
 
 export interface PlannerConfig {
@@ -192,7 +194,15 @@ export type GenEvent =
       type: "done";
       generationId: string;
       mode: "single" | "sectioned";
-      grounding: { paragraphs: number; cited: number; invalid: number };
+      grounding: {
+        paragraphs: number;
+        cited: number;
+        invalid: number;
+        /** Paragraphs that openly flagged material the book does not cover. */
+        gaps?: number;
+        /** Whether book-only strict mode was in force. */
+        strict?: boolean;
+      };
     }
   | { type: "error"; message: string };
 

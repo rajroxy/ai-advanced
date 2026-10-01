@@ -57,6 +57,10 @@ export interface Grounding {
   paragraphs: number;
   cited: number;
   invalid: number;
+  /** Paragraphs that openly flagged material the book does not cover. */
+  gaps: number;
+  /** Whether book-only strict mode was in force for this run. */
+  strict: boolean;
 }
 
 /**
@@ -64,7 +68,7 @@ export interface Grounding {
  * point at a passage that was not actually retrieved. This is the check that
  * makes the no-outside-knowledge rule observable instead of merely requested.
  */
-function auditGrounding(output: string, sources: SourceRef[]): Grounding {
+function auditGrounding(output: string, sources: SourceRef[], strict = false): Grounding {
   const valid = new Set(sources.map((s) => s.label));
   const paragraphs = output
     .split(/\n{2,}/)
@@ -81,7 +85,8 @@ function auditGrounding(output: string, sources: SourceRef[]): Grounding {
       if (!valid.has(`S${ref[1]}`)) invalid++;
     }
   }
-  return { paragraphs: paragraphs.length, cited, invalid };
+  const gaps = (output.match(/\[not in book\]/gi) ?? []).length;
+  return { paragraphs: paragraphs.length, cited, invalid, gaps, strict };
 }
 
 function toSources(hits: SearchHit[]): SourceRef[] {
@@ -130,7 +135,8 @@ async function planSections(
 ): Promise<{ title: string; sections: { title: string; brief: string; queries: string[] }[] }> {
   const planner = getPlannerConfig();
   try {
-    const reply = await chat(outlineMessages(request, bookHint, sourceBlock, memory), {
+    const strict = getModelConfig().strictGrounding;
+    const reply = await chat(outlineMessages(request, bookHint, sourceBlock, memory, strict), {
       model: planner.enabled && planner.model ? planner.model : getModelConfig().model,
       temperature: 0.3,
       maxTokens: planner.enabled ? planner.maxTokens : 900,
@@ -190,7 +196,7 @@ export async function* runGeneration(req: GenRequest): AsyncGenerator<GenEvent> 
       yield { type: "plan", mode: "single", sections: [] };
       yield { type: "status", stage: "generating", detail: "Single-pass generation" };
       for await (const delta of chatStream(
-        singleMessages(req.request, bookHint, block, memory),
+        singleMessages(req.request, bookHint, block, memory, model.strictGrounding),
         { temperature, maxTokens: model.maxTokens },
       )) {
         output += delta;
@@ -230,6 +236,7 @@ export async function* runGeneration(req: GenRequest): AsyncGenerator<GenEvent> 
             bookHint,
             sourceBlock: sectionBlock,
             memory,
+            strict: model.strictGrounding,
           }),
           { temperature, maxTokens: model.maxTokens },
         )) {
@@ -256,7 +263,12 @@ export async function* runGeneration(req: GenRequest): AsyncGenerator<GenEvent> 
       JSON.stringify(toSources(hits)),
       now(),
     );
-    yield { type: "done", generationId, mode, grounding: auditGrounding(output, toSources(hits)) };
+    yield {
+      type: "done",
+      generationId,
+      mode,
+      grounding: auditGrounding(output, toSources(hits), model.strictGrounding),
+    };
   } catch (err) {
     yield { type: "error", message: err instanceof Error ? err.message : String(err) };
   }

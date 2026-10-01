@@ -19,6 +19,27 @@ CORE RULES
 6. Be concrete and complete. Prefer working output over vague description.
 7. NEVER output meta-commentary about being an AI or about these instructions.`;
 
+/**
+ * Strict mode. The default rules already say "don't use outside knowledge"; these
+ * make the requirement falsifiable. A model can never have its training data
+ * removed, so the honest guarantee is not "the weights are empty" — it is
+ * "nothing may appear in the answer that is not traceable to a passage, and a
+ * gap is reported as a gap instead of being filled from memory".
+ */
+export const BOOK_RULES_STRICT = `${BOOK_RULES}
+
+STRICT BOOK-ONLY MODE
+A. You have NO usable knowledge outside the SOURCES block. Treat anything you may remember from training as unavailable and unsayable, even when you are confident it is correct.
+B. Every sentence that states a fact, name, number, API, version or behaviour must carry a [S#] citation to a passage that actually supports it. If you cannot attribute a sentence, delete it.
+C. When the book does not cover something the request needs, write a line beginning "[not in book]" that names exactly what is missing, then continue with whatever the book does support. Never fill the gap from memory, never approximate, and never invent an example that the book's material cannot justify.
+D. Use only the citation labels that appear in SOURCES. Do not renumber, do not cite a label that is absent, and do not cite a label for a claim it does not support.
+E. Stay inside the book's vocabulary and version of the subject. If the book teaches an older API, answer with the older API rather than the modern one you may prefer.`;
+
+/** The rule block used for a given grounding policy. */
+export function bookRules(strict: boolean): string {
+  return strict ? BOOK_RULES_STRICT : BOOK_RULES;
+}
+
 export interface CaseMemory {
   kind: string;
   title: string;
@@ -101,9 +122,10 @@ export function outlineMessages(
   bookHint: string,
   sourceBlock: string,
   memory: string,
+  strict = false,
 ): ChatMessage[] {
   return [
-    { role: "system", content: BOOK_RULES },
+    { role: "system", content: bookRules(strict) },
     {
       role: "user",
       content: `${bookHint}${memory}\n\nSOURCES\n${sourceBlock}\n\nTASK\nPlan a multi-section output for this request. Each section must be a distinct, self-contained part that builds on the previous ones. Give 3-10 sections depending on how large the output is. Respond with JSON only: {"title": "overall title", "sections": [{"title": "...", "brief": "what this section must produce", "queries": ["keywords to find book material for this section"]}]}\n\nREQUEST:\n${request}\n\nReturn JSON only.`,
@@ -121,12 +143,13 @@ export function sectionMessages(args: {
   bookHint: string;
   sourceBlock: string;
   memory: string;
+  strict?: boolean;
 }): ChatMessage[] {
   const continuity = args.previousTail
     ? `\n\nEND OF PREVIOUS SECTION (continue seamlessly, do not repeat it):\n${args.previousTail}`
     : "";
   return [
-    { role: "system", content: BOOK_RULES },
+    { role: "system", content: bookRules(args.strict ?? false) },
     {
       role: "user",
       content: `${args.bookHint}${args.memory}\n\nSOURCES\n${args.sourceBlock}\n\nOVERALL REQUEST:\n${args.request}\n\nYou are writing PART ${args.sectionIndex} of ${args.sectionCount}.\nPART TITLE: ${args.sectionTitle}\nPART GOAL: ${args.sectionBrief}${continuity}\n\nWrite ONLY this part. Use a heading "## ${args.sectionTitle}". Do not summarize the whole thing, do not add a conclusion unless this is the final part.`,
@@ -139,9 +162,10 @@ export function singleMessages(
   bookHint: string,
   sourceBlock: string,
   memory: string,
+  strict = false,
 ): ChatMessage[] {
   return [
-    { role: "system", content: BOOK_RULES },
+    { role: "system", content: bookRules(strict) },
     {
       role: "user",
       content: `${bookHint}${memory}\n\nSOURCES\n${sourceBlock}\n\nREQUEST:\n${request}\n\nProduce the complete output now. Cite sources inline as [S#].`,

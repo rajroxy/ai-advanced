@@ -576,6 +576,116 @@ export function saveBookProfile(bookId: string, profile: BookProfile): void {
   ).run(bookId, JSON.stringify(profile), now());
 }
 
+/* -------------------------------------------------------------- export ----- */
+
+export interface ExportedPage {
+  page: number | null;
+  text: string;
+}
+
+export interface ExportedSection {
+  title: string;
+  pages: ExportedPage[];
+}
+
+export interface ExportedChapter {
+  number: number;
+  title: string;
+  sections: ExportedSection[];
+}
+
+export interface ExportedBook {
+  title: string;
+  author: string | null;
+  subject: string | null;
+  exportedFrom: string;
+  exportedAt: number;
+  chapters?: ExportedChapter[];
+  sections?: ExportedSection[];
+}
+
+/**
+ * Rebuild a book from the index into the canonical JSON import shape, so a
+ * downloaded book can be uploaded straight back into the Library dialog. This
+ * is what the Download button on a book uses.
+ */
+export function exportBook(bookId: string): ExportedBook {
+  const book = getBook(bookId);
+  if (!book) throw new Error("Book not found");
+
+  const rows = db
+    .query<
+      {
+        chapter_no: number | null;
+        chapter_title: string | null;
+        section_title: string | null;
+        page: number | null;
+        text: string;
+      },
+      [string]
+    >(
+      `SELECT chapter_no, chapter_title, section_title, page, text
+       FROM chunks WHERE book_id = ? ORDER BY ord`,
+    )
+    .all(bookId);
+
+  const out: ExportedBook = {
+    title: book.title,
+    author: book.author,
+    subject: book.subject,
+    exportedFrom: `cortex-book/${book.id}`,
+    exportedAt: now(),
+  };
+
+  if (rows.some((r) => r.chapter_no != null)) {
+    const chapters: ExportedChapter[] = [];
+    for (const row of rows) {
+      const number = row.chapter_no ?? 0;
+      let chapter = chapters.find((c) => c.number === number);
+      if (!chapter) {
+        chapter = {
+          number,
+          title: row.chapter_title ?? `Chapter ${number}`,
+          sections: [],
+        };
+        chapters.push(chapter);
+      }
+      const sectionTitle = row.section_title ?? "";
+      let section = chapter.sections.find((s) => s.title === sectionTitle);
+      if (!section) {
+        section = { title: sectionTitle, pages: [] };
+        chapter.sections.push(section);
+      }
+      section.pages.push({ page: row.page, text: row.text });
+    }
+    out.chapters = chapters;
+  } else {
+    const sections: ExportedSection[] = [];
+    for (const row of rows) {
+      const title = row.section_title ?? "";
+      let section = sections.find((s) => s.title === title);
+      if (!section) {
+        section = { title, pages: [] };
+        sections.push(section);
+      }
+      section.pages.push({ page: row.page, text: row.text });
+    }
+    out.sections = sections;
+  }
+
+  return out;
+}
+
+/** A filesystem-safe filename for a downloaded book. */
+export function bookFileName(title: string): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  return `${slug || "book"}.json`;
+}
+
 export function getBookProfile(bookId: string): BookProfile | null {
   const row = db
     .query<{ profile: string }, [string]>("SELECT profile FROM book_profiles WHERE book_id = ?")
