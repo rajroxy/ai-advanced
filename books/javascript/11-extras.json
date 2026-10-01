@@ -1,0 +1,107 @@
+{
+  "part": "XI. Wider Topics",
+  "chapters": [
+    {
+      "c": "Errors and Exception Design",
+      "s": [
+        {
+          "t": "Error types and creating errors",
+          "p": [
+            "The platform defines several built-in error types, each signalling a category: Error for general failures, TypeError for a value of the wrong kind, RangeError for a value outside the allowed set, ReferenceError for a name that is not defined, SyntaxError for invalid code, and URIError for malformed encodings. Catching by type lets a handler react differently to a programming mistake than to an environmental failure such as a missing file.",
+            "A custom error class usually extends Error so it appears correctly in stack traces and can be distinguished with instanceof. Add a name property, a machine-readable code, and any structured context the caller needs. Error causes let you chain an underlying failure with a new one, so a high-level error can explain what the program was doing while preserving the original reason for debugging."
+          ]
+        },
+        {
+          "t": "Where to catch and where to throw",
+          "p": [
+            "Throw at the point where an invariant is violated or input is invalid, and catch where there is something useful to do: recovering, retrying, adding context, or reporting to the user. A catch that only logs and continues is usually wrong, because it hides a failure from the logic that must handle it. Let unexpected errors propagate to a single boundary that turns them into a user-facing message and a log entry.",
+            "Distinguish operational errors such as a network timeout, which are expected and handled, from programmer errors such as passing the wrong type, which should fail loudly during development. Validate arguments at public boundaries, assert internal invariants, and prefer returning a result object over throwing when absence is an ordinary outcome, reserving exceptions for genuinely exceptional conditions."
+          ]
+        },
+        {
+          "t": "Global handlers and reporting",
+          "p": [
+            "The window error event and the unhandledrejection event let a page react to failures that escaped every local handler, which is where a last-resort user message and a report to a monitoring service belong. In Node, the uncaughtException and unhandledRejection process events serve the same purpose, though the sound response to an uncaught exception in a server is usually to log and shut down rather than to continue in an unknown state.",
+            "Good error reports include the message, the stack, the user's action, the release version and relevant context, while excluding secrets. A stable identifier per error lets duplicates be grouped so the signal is not buried. Because stack traces are the primary debugging artifact, keep error objects intact rather than converting them to strings early, and pass them through layers unchanged."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "JSON and Serialization",
+      "s": [
+        {
+          "t": "Parsing and stringifying",
+          "p": [
+            "JSON is a text format for structured data with objects, arrays, strings, numbers, booleans and null. JSON.parse turns text into a value and throws a syntax error on malformed input, so it must be guarded when the source is untrusted. The optional reviver function transforms values during parsing, which is how dates stored as strings are converted back into Date objects.",
+            "JSON.stringify turns a value into text, skipping undefined, functions and symbols in object properties and converting them to null inside arrays. A replacer function or array controls what is included, and the third argument indents the output for readability. A toJSON method on an object customises its serialisation, which is how Date and other built-ins produce sensible output."
+          ]
+        },
+        {
+          "t": "Limits and safe usage",
+          "p": [
+            "JSON has no representation for undefined, big integers, dates, maps, sets, regular expressions, functions or cyclic references; stringifying a cycle throws, and large integers lose precision. Attempting to use JSON as a general deep-clone mechanism therefore loses information silently, which is why structuredClone exists for that purpose. When a rich type must survive serialisation, encode it explicitly with a tag such as a type field and decode it on the way back.",
+            "Security matters on both sides. Never evaluate JSON with the language evaluator, because a crafted string can execute code; always use JSON.parse. When validating parsed input from an external source, treat every field as untrusted and check its type and range before use. A schema validator turns that checking into a single declarative step and produces clear errors instead of scattered conditionals."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Web Components",
+      "s": [
+        {
+          "t": "Custom elements",
+          "p": [
+            "A custom element is a class extending HTMLElement registered with customElements.define and used in markup as a hyphenated tag name. The browser calls lifecycle callbacks when the element is connected, disconnected or has an attribute changed, which gives a component its own place in the DOM with encapsulated state. Because it is a real element, it works with the normal DOM API, form submission and accessibility tooling.",
+            "The shadow DOM attaches a separate, encapsulated tree to an element so its internal styles and structure do not leak out and cannot be reached by ordinary selectors. This isolation is the core benefit of the platform component model and removes the need for a styling convention. Templates and slots let a component declare its structure once and project caller-provided content into named placeholders."
+          ]
+        },
+        {
+          "t": "When to use the platform components",
+          "p": [
+            "Web Components are strongest for reusable widgets that must work in any framework or none, such as a date picker or a chart published as a library. They interoperate with every framework because they are ordinary elements. They are weaker for application structure, where a framework's data flow and component composition offer more ergonomics than imperative DOM inside callbacks.",
+            "The trade-offs are ergonomic: the API is imperative and verbose, reactivity must be built by hand, and server rendering and accessibility require care. Adopting them is worthwhile when cross-framework reuse or strong style isolation is the goal. Otherwise, a framework component achieves the same result with less ceremony, and the two can coexist in one application."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "WebAssembly and Advanced Graphics",
+      "s": [
+        {
+          "t": "WebAssembly basics",
+          "p": [
+            "WebAssembly is a compact binary format that runs at near-native speed in the same sandbox as JavaScript. It is compiled from languages such as C, C++, Rust or Go, and is loaded from JavaScript, which calls its exported functions and shares memory through an ArrayBuffer. This makes it the path for compute-heavy code such as codecs, simulation and existing native libraries.",
+            "WebAssembly complements rather than replaces JavaScript. It cannot touch the DOM directly, so JavaScript remains the orchestrator that loads modules, passes data and updates the interface. Crossing the boundary has a cost, so passing a pointer into shared memory is faster than passing many small values. For most applications the performance gain is unnecessary; adopt it when a profile shows a specific hot loop that dominates."
+          ]
+        },
+        {
+          "t": "Canvas, WebGL and WebGPU",
+          "p": [
+            "The canvas element provides a drawable surface with a two-dimensional context for shapes, text and images, or a three-dimensional context, WebGL, modelled on OpenGL for GPU-accelerated graphics. Canvas is used for charts, image editing, games and visualisation. Its contents are pixels, so accessibility requires a parallel textual representation, and drawing operations are imperative rather than declarative.",
+            "WebGPU is a newer graphics and compute API with a lower-overhead model than WebGL and explicit access to compute shaders, useful for rendering pipelines and general-purpose GPU work. Support is still spreading, so feature detection and a WebGL or canvas fallback are necessary. For most data visualisation, a higher-level library over canvas or SVG is the practical choice, and direct graphics programming is reserved for genuinely graphical applications."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Decorators, Proposals and the Future",
+      "s": [
+        {
+          "t": "Decorators",
+          "p": [
+            "A decorator annotates a class, method, field or accessor to modify or record something about it, written with an at sign before the declaration. Depending on their stage, decorators may wrap the declaration, receive metadata about it, or add behaviour such as logging, validation or dependency registration. They are widely used by frameworks for declarative wiring without hand-written boilerplate.",
+            "Decorator semantics have changed over several proposal stages, so behaviour depends on the toolchain configuration. They are convenient but obscure control flow, since a reader must know what each decorator does to understand the class. Use them where a framework expects them, and prefer explicit code elsewhere, because explicitness survives refactors and toolchain upgrades better than magic syntax."
+          ]
+        },
+        {
+          "t": "Reading proposals and shipping safely",
+          "p": [
+            "New language features move through stages from an idea to a finished specification, and each stage carries a different stability guarantee. A feature at an early stage may change or be withdrawn, so shipping it in production ties the codebase to a specific toolchain. Check the compatibility data before adopting and plan for the day the syntax changes.",
+            "The safe workflow is to adopt a feature when it is widely supported in the engines you target, or when a transpiler can lower it faithfully. Prefer using features for readability inside a module rather than spreading an unstable syntax across the codebase. Keeping the toolchain current and the target browsers explicit turns this from guesswork into a maintenance routine."
+          ]
+        }
+      ]
+    }
+  ]
+}

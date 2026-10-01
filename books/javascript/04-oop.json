@@ -1,0 +1,109 @@
+{
+  "part": "IV. Objects and Modularity",
+  "chapters": [
+    {
+      "c": "Prototypes and the Prototype Chain",
+      "s": [
+        {
+          "t": "Prototype-based inheritance",
+          "p": [
+            "Every object has an internal link to another object called its prototype, reachable through Object.getPrototypeOf and settable at creation with Object.create. When a property is read and not found on the object itself, the engine follows the prototype link and repeats, forming the prototype chain, until it reaches the end where the prototype is null. This is how methods are shared: they live on the prototype and every instance reaches them through the chain.",
+            "Functions have a prototype property used when they act as constructors, and Object.prototype sits at the top of most chains, providing methods such as hasOwnProperty and toString. Inheritance in JavaScript is therefore delegation: an object does not copy its parent's members, it looks them up live. Changing a prototype method affects all instances at once, which is powerful and also a reason to treat prototypes as shared and stable."
+          ]
+        },
+        {
+          "t": "Creating and wiring prototypes",
+          "p": [
+            "Object.create makes a new object with a chosen prototype and is the cleanest way to express pure delegation, optionally defining own properties in one call. Linking a derived constructor's prototype is done by assigning Object.create of the base prototype and resetting the constructor property so the reference is accurate. Without that reset, the constructor property points at the base, which confuses introspection code.",
+            "Shallow copying with spread or Object.assign copies own enumerable properties and does not copy the prototype, so the copy loses inherited methods. Use Object.create or a class when you want to preserve behaviour, and shallow copies when you want a plain data object. The getPrototypeOf and setPrototypeOf functions allow inspection and reassignment, but changing a prototype at runtime deoptimises objects and should be avoided in hot paths."
+          ]
+        },
+        {
+          "t": "instanceof and property lookup",
+          "p": [
+            "The instanceof operator walks the prototype chain of the left operand looking for the prototype of the right operand, so it answers whether an object was built from a constructor anywhere in its lineage. Because it depends on the prototype link it can be fooled by objects created with Object.create from the same prototype, which is usually desirable and occasionally surprising. A custom Symbol.hasInstance method can override the behaviour.",
+            "The in operator reports whether a property exists anywhere in the chain, while hasOwnProperty reports only own properties. Distinguishing the two matters when iterating or validating objects: inherited methods would otherwise count as data. Use Object.hasOwn, the modern static form, because it is safe even on objects that override hasOwnProperty or have no prototype at all."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Classes and Inheritance",
+      "s": [
+        {
+          "t": "Class syntax",
+          "p": [
+            "Class syntax is a clearer way to write constructor functions and prototypes. A class has a constructor run when the object is created with new, instance methods placed on the prototype, static methods placed on the class itself, and fields that initialise per instance. Classes are strict and are not hoisted in a usable way, so they must be defined before use. They cannot be called without new, which prevents the classic mistake of invoking a constructor as a function.",
+            "Fields can be declared with an initialiser, and private fields or methods are marked with a leading hash and are truly inaccessible from outside the class. Private state replaces the closure trick of the module pattern for encapsulated data. Getters and setters are declared with the get and set keywords and run on property access, which is useful for computed or validated values but hides work behind what looks like a plain field."
+          ]
+        },
+        {
+          "t": "Inheritance and super",
+          "p": [
+            "The extends keyword links a subclass to a parent class, and super calls the parent constructor or a parent method. A derived constructor must call super before accessing this, because the instance is created by the parent. Method overriding works by defining a method with the same name, and calling super with that name invokes the parent version, which supports the template method pattern where a base class defines a skeleton and subclasses fill in steps.",
+            "Deep inheritance hierarchies are fragile because a change in the base can break many subclasses and because a subclass is coupled to every detail of its parent. Composition, where a class holds helper objects and delegates to them, is usually more flexible and is preferred by modern guidance. Reach for inheritance when there is a genuine is-a relationship and the base is designed for extension."
+          ]
+        },
+        {
+          "t": "Static members and class expressions",
+          "p": [
+            "Static members belong to the class rather than to instances and are reached through the class name. Static blocks run once when the class is defined and are used for complex initialisation. Static methods often serve as factories, as in a from method that builds an instance from raw data, which is a common idiom in the standard library such as Array.from and Object.create.",
+            "A class can be an expression assigned to a variable or passed to a function, and classes are first-class values in that sense. Mixins compose behaviour by copying methods from one class onto another, offering a form of multiple inheritance without a shared base. Because classes are functions at heart, everything that works with functions such as decorators and higher-order wrappers applies to them as well."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Object Utilities and Descriptors",
+      "s": [
+        {
+          "t": "Property descriptors",
+          "p": [
+            "Every property has attributes: value, writable, enumerable and configurable. Object.defineProperty sets them explicitly and is how non-writable constants and non-enumerable internal properties are created. Getters and setters are expressed as an accessor descriptor with get and set functions instead of a value. Enumerability controls whether a property shows up in for-in and Object.keys, which is how built-in prototypes keep their methods out of the way.",
+            "Object.getOwnPropertyDescriptor reads the attributes back, and Object.getOwnPropertyDescriptors gathers them for many properties at once, which is the correct way to copy an object including getters and non-enumerable keys. Using these utilities is uncommon in application code but essential when building libraries that need to control exactly how properties behave."
+          ]
+        },
+        {
+          "t": "Freezing, sealing and ownership",
+          "p": [
+            "Object.freeze makes an object and its properties non-writable and non-configurable, Object.seal prevents adding and removing but allows writing, and Object.preventExtensions only blocks new properties. All three are shallow, so a frozen object can still contain a mutable array. A recursive deep freeze helper is straightforward but must guard against cycles by tracking visited objects.",
+            "Ownership questions are answered by a family of predicates: isExtensible, isFrozen and isSealed report the current state. Freezing configuration and shared constants prevents accidental mutation across modules and turns a silent bug into a thrown error in strict mode. Because freezing has a runtime cost and blocks later extension, apply it deliberately to values that should never change rather than to every object."
+          ]
+        },
+        {
+          "t": "Comparison, cloning and serialisation",
+          "p": [
+            "There is no built-in deep equality for objects, so two structurally identical objects are not equal. Common approaches are to compare the fields that matter, to use JSON serialisation when the data is JSON-safe, or to use a structural equality utility. Each has limits: JSON comparison ignores key order but drops undefined, functions and symbols, and it fails on cyclic structures.",
+            "structuredClone performs a real deep clone and handles nested objects, arrays, maps, sets and typed arrays, but it cannot clone functions, DOM nodes or class prototypes. JSON.stringify is for serialisation rather than cloning and supports a replacer and indentation. A custom toJSON method on an object controls how it is serialised, which is how Date, Map and Set produce sensible JSON representations."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Modules",
+      "s": [
+        {
+          "t": "ES modules",
+          "p": [
+            "ES modules are the standard module system. A module is a file with its own top-level scope, and it exports values with the export keyword and imports them with the import statement. Imports are live bindings, so if the exporting module updates a value the importer sees the new value, which is different from copying. Modules are strict by default, are deferred in browsers, and are evaluated once even if imported from several places.",
+            "Named exports are imported by name in braces and are statically analysed, which enables tree shaking where a bundler removes unused exports. A default export is imported without braces and is convenient for a primary value but is less tree-shakeable and harder to rename consistently. Circular imports are resolved by hoisting the bindings so that at least one side may initially see an incomplete view, which is a reason to avoid cycles."
+          ]
+        },
+        {
+          "t": "CommonJS and interoperability",
+          "p": [
+            "Node originally used CommonJS, where a module assigns to module.exports and pulls in dependencies with require. CommonJS is synchronous, evaluated on demand, and copies values rather than sharing live bindings. Node now supports ES modules natively, choosing the system per file based on the file extension and the type field of package.json, and both systems can coexist in one project.",
+            "When ES modules import from CommonJS, the default import receives module.exports as a whole, and named imports work only if the bundler or runtime can statically detect them. The reverse direction requires dynamic import, which returns a promise. These rules are the main source of confusion when a dependency ships CommonJS; identifying the module format of a package explains most interop errors."
+          ]
+        },
+        {
+          "t": "Dynamic import and code splitting",
+          "p": [
+            "The import function, called with parentheses, loads a module asynchronously at runtime and returns a promise for its namespace. This enables conditional loading, lazy route components and code splitting so a large application downloads only the code a user needs. Because it is a function call, it can appear anywhere and can take a computed specifier, unlike the static import declaration.",
+            "Bundlers detect dynamic imports and produce separate chunks, which is why the pattern is central to performance work. Loaded modules are cached, so repeated calls resolve immediately after the first. Use dynamic import for features that are large and used by few users, and static imports for the code on the critical path, keeping the initial bundle small."
+          ]
+        }
+      ]
+    }
+  ]
+}

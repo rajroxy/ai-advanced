@@ -1,0 +1,135 @@
+{
+  "part": "V. Collections and Data",
+  "chapters": [
+    {
+      "c": "Arrays and Array Methods",
+      "s": [
+        {
+          "t": "Creating and mutating arrays",
+          "p": [
+            "An array is an ordered list of values with a numeric length. Literal syntax uses square brackets, and Array.from converts iterables or array-like values into real arrays, with an optional mapping function. The spread operator copies elements into a new array. Push and pop work at the end, shift and unshift at the beginning, splice removes and inserts in the middle, and slice copies a range without mutating.",
+            "Mutating methods change the receiver and are the source of subtle bugs when an array is shared. Prefer non-mutating methods for data transformation and reserve mutation for genuinely local arrays. Sparse arrays, created by assigning past the current length or by the array constructor with a single number, behave inconsistently across methods because empty slots are skipped by some and treated as undefined by others."
+          ]
+        },
+        {
+          "t": "map, filter, reduce and friends",
+          "p": [
+            "The transforming methods are the everyday tools of array work. map produces a new array with each element transformed, filter keeps elements satisfying a predicate, find and findIndex locate the first match, some and every test whole-array conditions, and includes tests membership. flat and flatMap flatten nested arrays one level or while mapping, and sort orders in place using a comparator that must return a negative, zero or positive number.",
+            "reduce folds an array into a single value by calling a reducer with an accumulator and the current element. It can express sums, grouping, and building objects, but it is also easy to write an unreadable reduce; a clear loop or a specialised method is often better. Always supply an initial accumulator so an empty array does not throw, and remember that sort mutates, so copy first with spread when the original order matters."
+          ]
+        },
+        {
+          "t": "Iteration order, copying and length",
+          "p": [
+            "Arrays preserve insertion order, which makes them the right structure when order is meaningful and keys are positional. Copying is shallow: the spread operator, slice, and Array.from all produce a new array whose elements are the same references, so nested objects are still shared. A deep copy requires structuredClone or an explicit recursive routine.",
+            "The length property is writable: setting it smaller truncates the array, and larger creates empty slots. Using length as a delete is a trap, so remove elements with splice, filter or pop instead. The array methods that accept callbacks pass the element, the index and the whole array, which is occasionally useful but more often a source of confusion when the callback signature is mistaken."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Iterators and Generators",
+      "s": [
+        {
+          "t": "The iteration protocol",
+          "p": [
+            "An iterable is any object with a Symbol.iterator method returning an iterator, which is an object with a next method that returns a value and a done flag. Arrays, strings, maps, sets and typed arrays are iterable, which is why for-of, spread and destructuring all work on them. Making a custom object iterable is a matter of implementing that method, usually returning an object whose next closure tracks the position.",
+            "The loop protocol is lazy: values are produced on demand, so an iterator over an infinite sequence is usable as long as the consumer stops. Returning an object from the iterator's return method lets cleanup run when a for-of loop breaks early. This protocol is the mechanism behind for-of and is worth implementing deliberately for tree and graph structures that benefit from on-demand traversal."
+          ]
+        },
+        {
+          "t": "Generator functions",
+          "p": [
+            "A generator function is declared with an asterisk and uses yield to pause and resume. Calling it returns a generator object that is both an iterator and an iterable, so it can be consumed with for-of, spread or manual next calls. Each yield suspends the function, preserving its local state, which makes generators an elegant way to express sequences, lazy evaluation and state machines.",
+            "A generator can receive values through next, making it a two-way channel, and yield star delegates to another iterable, flattening nested generators. Because generators are lazy they can represent pipelines without allocating intermediate arrays, though plain array methods are usually clearer for small data. Generators also form the basis of async iterators, where each value is awaited."
+          ]
+        },
+        {
+          "t": "Async iteration",
+          "p": [
+            "An async generator is declared with an asterisk and awaits its yields, producing an async iterable that is consumed with for await-of. This is the standard way to process a stream of values that arrive over time, such as paginated API results, streamed file chunks or server-sent events, without buffering everything in memory. Each iteration awaits the next value before the loop body runs.",
+            "Async iteration composes with cancellation and backpressure: the consumer controls the pace because the producer yields only when asked. When reading from a stream, break out of the loop to stop early, and use try-finally or the iterator's return method to release resources. This pattern keeps memory use proportional to the current item rather than the whole dataset."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Map, Set, WeakMap and WeakSet",
+      "s": [
+        {
+          "t": "Map and Set",
+          "p": [
+            "A Map stores key-value pairs where keys may be any type, not just strings, and preserves insertion order. It offers get, set, has, delete, clear and size, and iterates as entries, keys or values. A plain object is fine for simple string-keyed records, but a Map is preferable when keys are dynamic or non-string, when frequent additions and deletions occur, or when order and a reliable size matter.",
+            "A Set stores unique values and answers membership with has in roughly constant time, which makes it the tool for deduplication and for fast exclusion checks. Sets preserve insertion order and support iteration. Converting between arrays and sets with spread or Array.from is idiomatic for deduplicating a list, remembering that uniqueness follows the same-value rule, so objects are unique by reference."
+          ]
+        },
+        {
+          "t": "Weak collections",
+          "p": [
+            "WeakMap and WeakSet hold their entries weakly, meaning they do not prevent their keys from being garbage collected. They accept only objects and functions as keys and are not iterable and have no size, precisely because their contents may vanish. They are the correct way to attach private data to an object, to cache derived values keyed by an object, and to track which objects have been processed without leaking memory.",
+            "A WeakMap used as a side table is the recommended replacement for the old convention of attaching a private property to an object. Because keys are weakly held, when the object is no longer referenced anywhere else the entry disappears automatically, which is why weak collections are central to caches that must not grow without bound. They cannot be enumerated, which is a limitation and also the guarantee that makes them safe."
+          ]
+        },
+        {
+          "t": "Choosing a collection",
+          "p": [
+            "The choice among the collections follows the access pattern. Use an array for an ordered sequence with positional access, a Set for uniqueness and membership, a Map for keyed lookup with arbitrary keys, and a weak collection for metadata that must not keep its subject alive. Objects remain the best fit for fixed-shape records with known keys because their shape can be optimised by the engine.",
+            "Mixing structures is normal: a Map of arrays groups records by key, an array of Sets holds the unique values per group, and so on. The cost of operations differs: array insertion in the middle is linear, set and map operations are near constant, and object property access is very fast for stable shapes. Choosing correctly removes the need for most micro-optimisations and keeps code clear."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Typed Arrays and Binary Data",
+      "s": [
+        {
+          "t": "ArrayBuffer and views",
+          "p": [
+            "An ArrayBuffer is a fixed-length block of raw bytes with no notion of values. A typed array view, such as Uint8Array or Float64Array, interprets that memory as a sequence of numbers of a fixed width. Creating a typed array allocates a buffer automatically, and several views can share one buffer, which is how binary formats are decoded and how the same bytes are read as different numeric types.",
+            "Unlike ordinary arrays, typed arrays have a fixed length, hold only numbers, and do not change shape, which makes them fast and predictable. They also do not participate in the same optimisations as normal arrays for object elements. DataView provides explicit endianness control and is used when parsing formats whose byte order is defined, such as network protocols and file headers."
+          ]
+        },
+        {
+          "t": "Text encoding and binary conversion",
+          "p": [
+            "TextEncoder converts a string to UTF-8 bytes and TextDecoder does the reverse, both operating over typed arrays and buffers. This is the standard way to move between strings and binary data in browsers and in modern Node, replacing ad-hoc routines. Base64 conversion uses the host's btoa and atob functions or, in Node, the Buffer type's toString with a base64 encoding.",
+            "Binary blobs from files, fetch responses and canvas are represented by ArrayBuffer, Blob and typed arrays, and conversions between them are routine. A Blob is a file-like immutable object that can be read as text, array buffer or stream; a Response can be turned into any of these. Knowing which representation an API returns, and which it expects, avoids unnecessary copies of large data."
+          ]
+        },
+        {
+          "t": "When binary handling matters",
+          "p": [
+            "Binary handling appears whenever performance or interoperability with external systems is involved: image and audio processing, cryptography, compression, network protocols, and WebAssembly memory. WebAssembly shares memory with JavaScript through an ArrayBuffer, so typed arrays are the bridge between the two. Cryptographic operations from the web crypto API also take and return buffers.",
+            "If your work is ordinary application logic, plain strings, numbers and JSON will cover it, and binary types can be ignored. Reach for typed arrays when a profiler shows that string or object manipulation dominates, when a protocol or file format demands exact bytes, or when integrating with native code. Otherwise, clarity wins over byte-level control."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Regular Expressions",
+      "s": [
+        {
+          "t": "Patterns and flags",
+          "p": [
+            "A regular expression is a pattern for matching text, written as a literal between slashes or built with the RegExp constructor for dynamic patterns. Flags modify behaviour: global finds all matches, ignore-case matches case-insensitively, multiline makes anchors match line boundaries, dot-all lets the dot match newlines, unicode enables full code point semantics, and sticky anchors matches at the last index. Patterns support character classes, quantifiers, groups, alternation, anchors and backreferences.",
+            "The test method reports whether a pattern matches, exec returns a match object with captured groups and position, and string methods such as match, matchAll, replace, search and split use regular expressions too. When replace is given a function, the function computes each replacement using the matched text and groups, which enables complex transformations. Named capture groups make replacements readable by referring to group names instead of positions."
+          ]
+        },
+        {
+          "t": "Writing safe patterns",
+          "p": [
+            "Regular expressions can be catastrophically slow. A pattern with nested quantifiers over overlapping alternatives can backtrack exponentially on crafted input, freezing the process, a problem known as catastrophic backtracking. Avoiding ambiguous repetition, anchoring patterns, and preferring linear constructs prevents it. When a pattern is applied to untrusted input with a time budget, validate with a simpler rule first or use a library that guarantees linear time.",
+            "Always anchor a pattern when the whole string must match, using start and end anchors, because an unanchored pattern matches a substring and silently accepts invalid input. Escape literal characters that have meaning in a pattern using the escape function or a helper. Regular expressions are excellent for validation of simple formats and poor for parsing nested structures such as HTML or balanced parentheses, which call for a real parser."
+          ]
+        },
+        {
+          "t": "Practical uses",
+          "p": [
+            "Regular expressions shine at tokenising, simple validation such as email shape or version strings, extracting fields from log lines, and bulk text transformation. They are also the basis of the string replace and split methods, including splitting on multiple delimiters. Keep patterns small and named, and add a comment when the intent is obscure, because a dense pattern is unreadable a week later.",
+            "For structured data, prefer a parser over a pattern. JSON, HTML, CSV with quoted fields and programming languages all have grammars that regular expressions cannot fully capture; a tokenizer plus parser, or an existing library, is the correct tool. Using a pattern for such formats usually works on the easy cases and fails on the hard ones, which is the worst combination for reliability."
+          ]
+        }
+      ]
+    }
+  ]
+}

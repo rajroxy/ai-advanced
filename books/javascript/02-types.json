@@ -1,0 +1,161 @@
+{
+  "part": "II. Values and Operators",
+  "chapters": [
+    {
+      "c": "Types and Coercion",
+      "s": [
+        {
+          "t": "The primitive types",
+          "p": [
+            "JavaScript has seven primitive types: string, number, bigint, boolean, undefined, null and symbol. Primitives are immutable and are compared by value, so two equal strings are equal. Everything else, including objects, arrays, functions, dates, maps and regular expressions, is a reference value of type object. The typeof operator reports the kind of a value, with two historical exceptions: typeof null returns the string object, and typeof of a function returns function even though functions are objects.",
+            "Because primitives are copied but objects are shared by reference, passing an object to a function lets that function mutate the caller's data, while passing a number cannot. Understanding this distinction is the root of most aliasing bugs. Copying an object requires an explicit shallow copy with spread or Object.assign, or a deep copy with structuredClone for values that contain only cloneable data."
+          ]
+        },
+        {
+          "t": "Implicit coercion",
+          "p": [
+            "Coercion converts a value from one type to another. Explicit coercion is deliberate, as in Number(text) or String(value). Implicit coercion happens when an operator expects a particular type, for example when concatenating with plus or comparing with the double equals operator. The abstract operations behind this are ToString, ToNumber, ToBoolean and ToPrimitive, and knowing their order resolves the puzzles that make JavaScript notorious.",
+            "The plus operator is overloaded: if either operand is a string it concatenates, otherwise it adds numerically. That is why one plus one is two but one plus the string one is the string eleven. The boolean conversion is simple: false, zero, negative zero, empty string, null, undefined and not-a-number are falsy, and everything else is truthy, including empty arrays and empty objects. Prefer explicit conversion at boundaries so the reader never has to simulate the rules."
+          ]
+        },
+        {
+          "t": "Equality and identity",
+          "p": [
+            "The double equals operator compares after coercion, and the triple equals operator compares without conversion. The strict operator returns true only for values of the same type that are equal, with the special rule that not-a-number is not equal to itself. The loose operator follows a conversion algorithm that makes expressions such as zero equals empty string true and null equals undefined true, which is rarely what you want.",
+            "Use triple equals almost everywhere so comparisons are predictable. The one idiomatic use of loose equality is the null check, where value equals null is true for both null and undefined and is a compact way to test for either. Object comparison always compares references, so two distinct objects that look identical are not equal; comparing by value requires comparing the fields you care about or using a dedicated equality helper."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Numbers and Math",
+      "s": [
+        {
+          "t": "Floating point and safe integers",
+          "p": [
+            "Numbers are double-precision binary floating point following the IEEE 754 standard, which gives 53 bits of integer precision and introduces representation error for fractions that are not powers of two. That is why zero point one plus zero point two is not exactly zero point three. Comparisons of floating point results should use a tolerance, and money should be handled in integer minor units or a decimal library rather than in floats.",
+            "The safe integer range is the numbers between the negative and positive value of two to the fifty-third power minus one, exposed as Number.MAX_SAFE_INTEGER and its negative counterpart. Beyond that range, distinct integers may map to the same value. Number.isSafeInteger tests membership in the range, and Number.isFinite distinguishes real numbers from the special values infinity and not-a-number. Because not-a-number is the only value unequal to itself, Number.isNaN is the reliable test, unlike the global isNaN which coerces its argument first."
+          ]
+        },
+        {
+          "t": "BigInt, rounding and parsing",
+          "p": [
+            "BigInt represents arbitrarily large integers exactly and is written with a trailing n, such as nine hundred quintillion n. BigInt and number cannot be mixed in arithmetic without an explicit conversion, because doing so could silently lose precision. Use BigInt for identifiers, cryptography and counters that exceed the safe integer range, and numbers for ordinary arithmetic. Comparisons between BigInt and number work, but addition and multiplication do not.",
+            "Rounding is available through Math.round, Math.floor, Math.ceil and Math.trunc, and formatting through toFixed and Intl.NumberFormat. Parsing integers and floats uses parseInt and parseFloat, which stop at the first invalid character and therefore silently accept trailing junk; Number is stricter and returns not-a-number for anything that is not a full numeric literal. For user input, prefer Number with an explicit validity check, or parse with a validating regular expression."
+          ]
+        },
+        {
+          "t": "Randomness and the Math object",
+          "p": [
+            "The Math object provides constants such as Math.PI and functions for trigonometry, exponentiation, logarithms, absolute value, minimum and maximum, and rounding. Math.random returns a pseudo-random number in the half-open interval from zero inclusive to one exclusive. A random integer in a range is built by multiplying by the span and flooring, being careful to add the lower bound and to use the exclusive upper bound correctly.",
+            "Math.random is not cryptographically secure. For tokens, passwords or anything with a security implication, use the random values API provided by the host, such as the web crypto getRandomValues method. Seeding is not supported, so tests that depend on randomness should inject a random function rather than patch Math.random, which keeps tests deterministic and the production code untouched."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Strings and Text",
+      "s": [
+        {
+          "t": "String basics and immutability",
+          "p": [
+            "A string is an immutable sequence of UTF-16 code units. Methods such as slice, substring, replace, toUpperCase, trim, split, padStart and includes return new strings rather than modifying the original. Indexing with square brackets returns a single code unit as a string, and length counts code units, not characters, which matters for characters outside the basic multilingual plane such as many emoji, which occupy two code units.",
+            "Because strings are immutable they can be safely shared and used as map keys. Building large strings by repeated concatenation is acceptable in modern engines, but joining an array of parts with join is clearer for lists. Template literals add interpolation and multi-line text and are the modern default for anything containing a value, while plain quotes remain fine for fixed text."
+          ]
+        },
+        {
+          "t": "Template literals",
+          "p": [
+            "Template literals are delimited by backticks and support interpolation with a dollar sign and braces, plus multi-line content without escape sequences. Tagged templates pass the literal parts and the interpolated values separately to a function, enabling domain-specific languages such as styled components or safe query builders. This is the mechanism behind several popular libraries and is part of the core language rather than an extension.",
+            "Because interpolation is automatic string conversion, prefer template literals over concatenation for readability and to avoid precedence mistakes. Be careful with untrusted values: interpolating user text into HTML or SQL is an injection risk. Template literals do not escape anything, so escaping must be done by a dedicated function or by using a library that understands the target syntax."
+          ]
+        },
+        {
+          "t": "Unicode and internationalisation",
+          "p": [
+            "Strings are sequences of UTF-16 code units, so a character outside the basic plane is a surrogate pair of two code units. Iterating a string with a for-of loop or using Array.from yields code points rather than code units and therefore handles emoji correctly. The normalise method converts between canonical Unicode forms, which matters when comparing visually identical text that was composed differently.",
+            "Locale-aware comparison and formatting come from Intl rather than from simple operators. Intl.Collator sorts strings according to a locale's rules, where accented letters sort near their base letters, and Intl.NumberFormat, Intl.DateTimeFormat and Intl.ListFormat produce localised output. Using these avoids hand-rolled formatting and keeps text correct across languages and regions."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Booleans, null, undefined and Symbol",
+      "s": [
+        {
+          "t": "Truthiness and the boolean type",
+          "p": [
+            "The boolean type has exactly two values, true and false. Logical operators and conditions convert their operands using the truthy and falsy rules, and the conversion is not limited to booleans: the logical and operator returns the first falsy operand or the last operand, and the logical or returns the first truthy operand or the last. This short-circuit behaviour is used to supply defaults and to guard dereferences.",
+            "The nullish coalescing operator is a stricter default: it returns the right side only when the left is null or undefined, unlike the logical or which also replaces other falsy values such as zero and the empty string. Choosing between them is a common source of bugs. Use the logical or for presence checks on objects and the nullish operator when zero or the empty string is a legitimate value."
+          ]
+        },
+        {
+          "t": "null, undefined and absence",
+          "p": [
+            "undefined means a value was never assigned, and is what a missing property, a missing argument and an uninitialised var all produce. null is an explicit absence that a programmer sets on purpose. Both are falsy and both loosely equal each other but not anything else. Treating the two as different signals, and defaulting to undefined for unset values, keeps intent clear.",
+            "Optional chaining short-circuits property access when a value is null or undefined, turning a crash into undefined. Combined with the nullish coalescing operator it expresses defaults cleanly: read configuration property with a fallback in one expression. Do not use optional chaining everywhere, because it can hide a genuine programming error; use it at real boundaries such as optional configuration or responses from external systems."
+          ]
+        },
+        {
+          "t": "Symbols",
+          "p": [
+            "A symbol is a unique, immutable primitive often used as a property key that cannot collide with string keys. Two symbols with the same description are different values. Symbols are skipped by ordinary property enumeration and JSON serialisation, which makes them useful for attaching metadata without polluting the visible shape of an object. The global symbol registry, reached through Symbol.for and Symbol.keyFor, lets different parts of a program share a symbol by name.",
+            "Well-known symbols customise language behaviour: Symbol.iterator makes an object iterable, Symbol.asyncIterator does the same for async iteration, Symbol.toPrimitive controls coercion, and Symbol.hasInstance customises the instanceof operator. Implementing these hooks is how user types cooperate with for-of, spread, destructuring and other built-in machinery."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Objects and Properties",
+      "s": [
+        {
+          "t": "Object literals and property access",
+          "p": [
+            "An object is a collection of key-value pairs where keys are strings or symbols and values are any type. Literal syntax uses braces with colon-separated pairs, commas between them, shorthand for variables of the same name, computed keys in square brackets, and method shorthand. Properties are read with dot notation for fixed names and bracket notation for dynamic names or names that are not valid identifiers.",
+            "Reading a missing property yields undefined rather than throwing, which is convenient but hides mistakes; deleting a property with the delete operator removes it and can hurt performance because it changes the object's hidden shape. Prefer setting a property to undefined or restructuring the data over deleting keys in hot paths. Checking for existence is done with the in operator or hasOwnProperty, which behave differently for inherited properties."
+          ]
+        },
+        {
+          "t": "Copying, merging and freezing",
+          "p": [
+            "Object.assign copies own enumerable properties from sources into a target, and the spread syntax in an object literal produces a shallow copy. Both are shallow, so nested objects are still shared with the original. A deep copy that handles nested data is available as structuredClone for cloneable values, while JSON round-tripping works only for JSON-safe data and silently drops functions, undefined and symbols.",
+            "Object.freeze prevents adding, removing or changing properties and is shallow, so nested objects must be frozen individually or by a recursive helper. Object.seal prevents adding and removing but allows changing values. Immutability aids reasoning but freezing every object has a cost, so apply it at boundaries where a shared value must not change, such as a configuration object."
+          ]
+        },
+        {
+          "t": "Iterating keys, values and entries",
+          "p": [
+            "Object.keys, Object.values and Object.entries return arrays of the own enumerable string keys, values or pairs, which are convenient for mapping and destructuring. The for-in loop visits enumerable properties including inherited ones, so it should be guarded with hasOwnProperty or replaced by Object.entries, which is predictable and produces both the key and the value.",
+            "Property order is defined: integer-like keys come first in ascending numeric order, then string keys in insertion order, then symbols. Rely on this only when it is part of the specification; do not depend on insertion order for keys that look like indices. When order matters and the data is not object-shaped, prefer a Map, which preserves insertion order for every key type and has a size property."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Operators and Expressions",
+      "s": [
+        {
+          "t": "Arithmetic, assignment and comparison",
+          "p": [
+            "Arithmetic operators include plus, minus, multiply, divide, modulo and exponent. The increment and decrement operators change a variable by one and exist in prefix and postfix forms that differ in the value they yield. Compound assignment operators such as plus-equals combine an operation with assignment. Comparison operators include the ordered relations, which coerce to numbers then to strings, and the equality operators discussed elsewhere.",
+            "Operator precedence determines grouping, and associativity determines the order for operators of equal precedence. Rather than memorising the full table, use parentheses whenever the intent is not obvious. The comma operator evaluates its left operand, discards it, and yields the right; it is rarely needed outside for-loop headers and is best avoided in ordinary expressions."
+          ]
+        },
+        {
+          "t": "Logical, nullish and bitwise operators",
+          "p": [
+            "The logical operators and, or and not short-circuit and return one of their operands. The nullish coalescing operator supplies a default only for null and undefined. Logical assignment operators combine these with assignment, for example or-equals and nullish-equals, which are handy for lazy initialisation. These operators return values, not forced booleans, so they can build expressions rather than just conditions.",
+            "Bitwise operators treat their operands as thirty-two-bit signed integers and include and, or, xor, not, shifts and unsigned shift. They are used for flags, hashing tricks and performance-sensitive code. Because they truncate to thirty-two bits they silently corrupt larger numbers, so they should never be applied to values that can exceed that range. Double bitwise not is a known trick for truncating to an integer, but Math.trunc is clearer and safer."
+          ]
+        },
+        {
+          "t": "Conditional, spread and optional chaining",
+          "p": [
+            "The conditional operator, often called the ternary operator, chooses between two expressions based on a condition and is the only operator with three operands. It is an expression, so it can appear inside other expressions, which is useful for a value that depends on a condition. Nested ternaries quickly become unreadable and should be replaced by a lookup or an if statement.",
+            "The spread operator expands an iterable into a function call or array literal and spreads object properties into an object literal, while the rest pattern collects remaining items into an array or object. Optional chaining guards property access and calls, and combines with nullish coalescing for defaults. Together these operators make modern data manipulation concise, but each should be used where it clarifies intent rather than to save keystrokes."
+          ]
+        }
+      ]
+    }
+  ]
+}

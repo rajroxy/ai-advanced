@@ -1,0 +1,128 @@
+{
+  "part": "IX. Patterns, Performance and Safety",
+  "chapters": [
+    {
+      "c": "Design Patterns in JavaScript",
+      "s": [
+        {
+          "t": "Creational and structural patterns",
+          "p": [
+            "A factory function returns a new object without exposing the constructor, which hides creation details and lets the returned shape vary. A module pattern wraps private state in a closure and returns only the public surface. A singleton ensures one shared instance, which in JavaScript is usually just a module-level constant rather than a special class. These patterns replace the ceremony of classical languages with closures and objects.",
+            "Structural patterns adapt and compose. The decorator pattern wraps an object to add behaviour while preserving its interface, which is a plain higher-order function in JavaScript. The adapter translates one interface into another, the facade presents a simple interface over a complex subsystem, and the proxy interposes on property access. Because objects are dynamic, most structural patterns are small functions rather than class hierarchies."
+          ]
+        },
+        {
+          "t": "Behavioural patterns",
+          "p": [
+            "The observer and publish-subscribe patterns decouple a producer from its consumers by having consumers subscribe to notifications. An event emitter or a callback registry implements both. The strategy pattern swaps algorithms behind a common interface, which in JavaScript is simply passing a function. The command pattern captures an action as a value so it can be stored, queued or undone, which is the basis of undo stacks and task queues.",
+            "The state pattern models a system as a set of states with defined transitions, often implemented with a lookup object rather than a tangle of conditionals. The iterator pattern exposes traversal without revealing the underlying structure, which is now standardised through the iteration protocol. Choosing a pattern is about naming a recurring solution; applying one where a plain function suffices adds indirection without benefit."
+          ]
+        },
+        {
+          "t": "Architectural patterns",
+          "p": [
+            "Layered architecture separates concerns into presentation, domain and data layers, with dependencies pointing inward so the domain does not know about the database or the interface. A repository abstracts data access behind an interface, which makes the storage swappable and the domain testable. Dependency injection supplies collaborators from outside rather than constructing them internally, which is what makes the parts replaceable in tests.",
+            "State management patterns keep a single source of truth and update it through explicit actions, so changes are traceable. Unidirectional data flow, where actions update state and state renders the view, removes the bidirectional synchronisation bugs of older model-view approaches. The specific library matters less than the discipline of one source of truth, pure updates and a clear separation between state and rendering."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Functional Programming",
+      "s": [
+        {
+          "t": "Pure functions and immutability",
+          "p": [
+            "A pure function returns the same output for the same input and has no side effects. Purity makes functions easy to test, safe to cache and safe to run in parallel. Side effects such as logging, network calls and mutation are unavoidable, so the goal is to push them to the edges of the system and keep the core logic pure, which is where the reasoning happens.",
+            "Immutability means never changing a value in place; instead a new value is produced. Adding spread and the array methods to that rule yields code where data flows forward and no earlier reference changes unexpectedly. Immutability also enables cheap change detection, because a reference comparison answers whether anything changed, which is the foundation of many reactive systems."
+          ]
+        },
+        {
+          "t": "Composition and pipelines",
+          "p": [
+            "Composition builds behaviour from small functions: map transforms, filter selects and reduce aggregates. A pipeline applies a sequence of transformations to a value, and is expressed either as chained method calls or as a compose helper, depending on readability. The functional core keeps each step small, named and independent, which makes the whole pipeline easy to test.",
+            "Transducers and lazy sequences go further by fusing transformations so no intermediate arrays are built, which matters for very large data. Currying and partial application fix some arguments early, creating specialised functions from general ones. These techniques are powerful but add abstraction; apply them where the data volume or the reuse genuinely justifies the cost in clarity."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Memory, Performance and Profiling",
+      "s": [
+        {
+          "t": "Garbage collection and leaks",
+          "p": [
+            "Memory is reclaimed automatically by tracing which objects are still reachable. An object stays alive as long as something reachable references it, so a leak in JavaScript is an accidental reference that was never released. Common causes are timers that are never cleared, event listeners that are never removed, closures that capture large data, caches that grow without bound, and detached DOM nodes still referenced from JavaScript.",
+            "Preventing leaks is a matter of lifecycle discipline: remove listeners and clear timers when a component is destroyed, bound cache sizes, and null out references to objects no longer needed. Memory profiles in the browser developer tools show allocation over time and retained objects, which turns a guess about a leak into a specific reference to fix."
+          ]
+        },
+        {
+          "t": "Optimisation and measurement",
+          "p": [
+            "Measure before optimising, because intuition about performance is usually wrong and premature optimisation adds complexity that outlives its benefit. Profiles identify the actual hot path, benchmarks quantify a change, and the size of an input often determines which algorithm matters. Optimise the algorithm and the data access pattern before micro-tuning individual statements.",
+            "Engine-level advice that does hold: keep object shapes stable so the optimiser can specialise property access, avoid deleting properties, avoid mixing types in one array, and avoid try-catch inside the hottest loop when it forces the function to be deoptimised. None of these matter until a profile points at them. Conceptually, the biggest wins usually come from doing less work: caching, batching, lazy loading and virtualising long lists."
+          ]
+        },
+        {
+          "t": "Perceived performance",
+          "p": [
+            "Speed that users feel is not the same as throughput measured in a benchmark. Showing a skeleton while data loads, updating optimistically and reconciling later, prefetching what is likely next, and keeping the main thread free so interaction feels instant all improve perceived performance even when total work is unchanged. Reducing layout shifts and painting early content matters more than shaving milliseconds off a background task.",
+            "The budget approach makes this concrete: decide a limit for interaction latency, first contentful paint and bundle size, then treat exceeding it as a defect. Instruments such as the performance API and field metrics from real users tell you whether the budget is met, rather than guessing from a fast development machine."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Security",
+      "s": [
+        {
+          "t": "Injection and cross-site scripting",
+          "p": [
+            "Cross-site scripting occurs when untrusted data is treated as code, usually by inserting it into the document as HTML. Defence is to keep untrusted values as data: set textContent rather than innerHTML, use attribute APIs rather than building markup strings, and escape consistently when a template library is not doing it for you. A content security policy is a second line of defence that restricts which scripts may run.",
+            "Other injection classes follow the same principle at different targets. SQL injection is prevented by parameterised queries, never by string concatenation. Command injection is prevented by avoiding the shell and passing arguments as an array. Template injection is prevented by not evaluating user-supplied templates. In every case the fix is to separate data from the language it is embedded in, not to filter known bad characters."
+          ]
+        },
+        {
+          "t": "Browser-side threats and defences",
+          "p": [
+            "Cross-site request forgery tricks a logged-in user's browser into sending an unwanted request, and is prevented by same-site cookies, a CSRF token, or requiring a non-simple header that forces a preflight. Clickjacking embeds a page in an iframe to capture clicks and is prevented by frame-ancestors headers. Cross-origin isolation, the same-origin policy and CORS determine which scripts may read which responses.",
+            "The same-origin policy is the browser's central isolation mechanism; treat its exceptions as deliberate. Store authentication tokens so that scripts cannot read them, prefer cookies with the httponly and secure attributes for sessions, and never place secrets in client code or in local storage, because anything shipped to the browser is public regardless of obfuscation."
+          ]
+        },
+        {
+          "t": "Dependencies and supply chain",
+          "p": [
+            "Most application code comes from dependencies, so the supply chain is part of the attack surface. Vulnerabilities in a transitive package can compromise an application without any change to its own code. Regular audits, automated alerts, lock files with integrity hashes and a policy of few, well-maintained dependencies reduce the exposure. Reviewing what a package does at install time, and avoiding packages that run arbitrary code in lifecycle scripts, is part of the discipline.",
+            "Defence in depth assumes any single control can fail. Validate on the server even when the client validates, treat all input as untrusted regardless of its source, apply the principle of least privilege to tokens and services, and log security-relevant events. On the client, remember that everything can be modified by the user, so no security decision may rely on client-side checks alone."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Metaprogramming",
+      "s": [
+        {
+          "t": "Proxy and Reflect",
+          "p": [
+            "A Proxy wraps an object and intercepts operations such as get, set, has, delete and apply. This enables validation on assignment, default values for missing properties, logging, and virtual properties computed on demand. The Reflect object provides the default behaviour for each trap, so a proxy can perform an action and then delegate, which keeps semantics correct and avoids recursion.",
+            "Proxies are the basis of many reactive and observable systems, where a set trap notifies subscribers, and of APIs that need to record or restrict access. They add a level of indirection and can surprise debugging tools, so use them where an interposition is genuinely required rather than as a general-purpose convenience. Some operations cannot be intercepted, such as identity comparison, which limits what a proxy can emulate."
+          ]
+        },
+        {
+          "t": "Property descriptors and symbols",
+          "p": [
+            "Defining properties with descriptors gives control over writability, enumerability and configurability, and accessor descriptors replace a value with getter and setter functions. This is how libraries create read-only values, hide implementation properties from enumeration, and implement lazy computation. Symbols provide non-string keys that avoid collisions, and well-known symbols hook into language behaviour such as iteration and coercion.",
+            "These tools let a value participate in language features rather than merely being operated on by them. Implementing Symbol.toPrimitive controls how an object converts to a primitive in arithmetic and concatenation; implementing Symbol.iterator makes it usable in for-of and with spread. Used sparingly, they make custom types feel native; used everywhere, they make code unpredictable."
+          ]
+        },
+        {
+          "t": "When not to metaprogram",
+          "p": [
+            "Metaprogramming trades clarity for power. Code that generates code, intercepts operations or rewrites prototypes is harder to read, harder to debug and harder for tooling to analyse. Before reaching for a proxy or a dynamic construct, consider whether an explicit function, a plain object, or a small amount of duplication would communicate the intent better.",
+            "The exception is library and framework authoring, where a small amount of metaprogramming can remove a large amount of repetition for every user of the library. In application code, prefer explicitness. A useful rule is that a reader should be able to follow what happens by reading the source, without having to simulate a hidden mechanism."
+          ]
+        }
+      ]
+    }
+  ]
+}

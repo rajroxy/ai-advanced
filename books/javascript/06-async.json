@@ -1,0 +1,109 @@
+{
+  "part": "VI. Asynchrony",
+  "chapters": [
+    {
+      "c": "The Event Loop",
+      "s": [
+        {
+          "t": "Single thread and the task queue",
+          "p": [
+            "JavaScript runs on one thread per realm, so only one piece of code executes at a time. Work that cannot finish immediately, such as a timer or a network response, is handed to the host, which queues a callback. The event loop takes one task from the queue, runs it to completion, then repeats. Because a task runs to completion, a long loop blocks timers, rendering and input, which is why heavy work must be broken up or moved to a worker.",
+            "The queue is not the only structure. Rendering happens between tasks in a browser, and the host decides how often to repaint. Microtasks, which come from promise reactions and queueMicrotask, have their own queue that is drained completely after each task and before the next task or render. This ordering is the source of the difference between setTimeout with zero delay and a resolved promise: the promise callback runs first."
+          ]
+        },
+        {
+          "t": "Timers and scheduling",
+          "p": [
+            "setTimeout schedules a callback after at least the given delay, not exactly at that time, because the callback waits for the current task and any queued work to finish. setInterval repeats, and because intervals can drift and pile up when the callback is slow, a self-scheduling timeout is often more accurate. Passing zero as the delay means as soon as possible, not immediately, and still yields to the event loop.",
+            "Clearing a timer requires keeping its identifier and calling clearTimeout or clearInterval, which matters in component lifecycles and when an operation is cancelled. In browsers, requestAnimationFrame schedules work just before the next repaint and is the correct way to animate, and requestIdleCallback runs low-priority work when the main thread is free. Choosing the right scheduler keeps the interface responsive."
+          ]
+        },
+        {
+          "t": "Microtasks and starvation",
+          "p": [
+            "Microtasks run after the current task and before anything else, including rendering and timers. A promise's then and catch callbacks, and the code after an await, are microtasks. A microtask that schedules more microtasks can delay rendering and timers indefinitely, a condition called microtask starvation, so recursive promises should be replaced by a task or a timer at the edge.",
+            "Because microtasks run to completion, awaiting a resolved value still defers the continuation to the next microtask checkpoint, which is why code after an await is not synchronous even for an already-settled promise. Understanding this ordering explains subtle timing bugs and is essential when mixing promises with timers, streams and rendering."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Promises",
+      "s": [
+        {
+          "t": "States and chaining",
+          "p": [
+            "A promise represents a value that will exist later. It is pending, then fulfilled with a value or rejected with a reason, and once settled it never changes. The then method registers handlers for fulfilment and rejection and returns a new promise, which is why chains work: returning a value from a handler fulfils the next promise with it, returning another promise waits for that one, and throwing rejects the chain. The catch method is sugar for a then with only a rejection handler, and finally runs cleanup regardless of outcome.",
+            "Because then returns a promise, a chain is a sequence of transformations rather than nested callbacks, which was the central improvement over the callback style. Errors propagate down the chain until a handler catches them, so a single catch at the end of a chain can handle failures from any step. Returning a promise from inside a handler flattens it, avoiding nested await-style structures."
+          ]
+        },
+        {
+          "t": "Combinators",
+          "p": [
+            "Promise.all waits for every promise and fulfils with an array of results, rejecting as soon as any promise rejects. Promise.allSettled waits for all and never rejects, returning a status and value or reason per item. Promise.race settles as soon as the first promise settles, whether fulfilled or rejected, and Promise.any fulfils with the first fulfilled value and rejects only if all reject. These four cover nearly every coordination need.",
+            "Choosing among them is a matter of intent. Use all when every result is required and a failure should fail the whole operation. Use allSettled when you want to process successes and failures together. Use race for timeouts, wrapping a real promise and a timer that rejects. Use any when several sources can supply the value and only one needs to succeed."
+          ]
+        },
+        {
+          "t": "Creating and converting promises",
+          "p": [
+            "The Promise constructor takes an executor with resolve and reject callbacks and is used to wrap callback-based APIs. The new Promise antipattern is wrapping an operation that already returns a promise, which adds nesting without benefit. To convert a callback API, wrap it once in a small helper and reuse that helper rather than repeating the wrapper at every call site.",
+            "Prefer promise-returning APIs when available; most platforms now provide them for files, network and timers. Static helpers such as Promise.resolve and Promise.reject create settled promises, and tools like util.promisify turn a Node-style callback function into one that returns a promise. Unhandled rejections surface as warnings and can terminate a process, so every chain should end with a catch or be awaited inside a try-catch."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "async and await",
+      "s": [
+        {
+          "t": "Making asynchronous code read linearly",
+          "p": [
+            "An async function always returns a promise; a plain return fulfils it and a throw rejects it. Inside, await pauses the function until the awaited promise settles, then resumes with the value or throws the reason. This lets asynchronous logic be written in the same shape as synchronous code, with try-catch for errors and ordinary loops and conditions.",
+            "Awaiting a non-promise value simply continues on the next microtask, so await is safe on any value. Awaiting inside a loop processes items sequentially, which is correct when the order or rate matters but slow when the operations are independent. For independent work, start all the promises first and await them together, so the calls overlap instead of running one after another."
+          ]
+        },
+        {
+          "t": "Errors, parallelism and pitfalls",
+          "p": [
+            "A rejected await throws, so try-catch handles asynchronous failures uniformly. A forgotten await on a promise that rejects produces an unhandled rejection and a silent logical error, which is why linting rules require awaiting the result of an async call or explicitly ignoring it. Returning a promise from an async function is fine but awaiting it first gives a better stack trace.",
+            "Parallel work uses Promise.all over an array of calls, or a bounded concurrency helper when there are thousands of operations and the target cannot handle them all at once. Sequential awaits for independent calls are the most common performance mistake in asynchronous code. Do not block on a promise with a synchronous wait, and do not use an async function where a synchronous one is required, such as a callback whose return value is used directly."
+          ]
+        },
+        {
+          "t": "Top-level await",
+          "p": [
+            "In a module, await may be used at the top level, so setup work such as loading configuration can finish before the module exports are used. Top-level await in one module makes every module that imports it wait, which is convenient but can serialise startup if used carelessly. It is unavailable in CommonJS scripts, where an async wrapper is required instead.",
+            "Use top-level await for genuine one-time initialisation that the module cannot function without, such as opening a database connection or fetching a remote schema. Avoid it for optional or lazy work, which belongs in a function called on demand. Because it delays dependent modules, keep the awaited work short and resilient, with a timeout or fallback so one slow dependency does not stall the entire application."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Concurrency, Workers and Cancellation",
+      "s": [
+        {
+          "t": "AbortController and timeouts",
+          "p": [
+            "The AbortController pairs a signal with an abort method. Passing the signal to fetch, to a stream reader, or to a custom API lets the caller cancel work in progress. Aborting rejects the pending promise with an abort error, which must be distinguished from a genuine failure in the catch handler. A controller can be reused only until it is aborted; create a new one per operation.",
+            "Combining a timeout with cancellation is a common pattern: race the real promise against a timer that aborts the controller, so a slow request is cancelled rather than left running. Many APIs accept a signal directly, which is cleaner than racing. Always clean up listeners and timers when an operation finishes, so cancelled work does not leave dangling resources."
+          ]
+        },
+        {
+          "t": "Web Workers and worker threads",
+          "p": [
+            "A worker runs JavaScript on another thread. In browsers a Web Worker is created from a script URL and communicates by posting messages; in Node a worker thread does the same with a similar API. Workers share no memory by default, so data is copied or transferred. A transferred ArrayBuffer moves its ownership, which avoids a copy for large binary data and is the standard technique for high-performance pipelines.",
+            "Workers are the answer to heavy computation that would otherwise block the interface: parsing large files, image processing, cryptography, and simulation. Keep the main thread responsive by sending work out and receiving results as messages. SharedArrayBuffer with atomics allows true shared memory but requires specific security headers and careful synchronisation, and should be reserved for cases where copying is genuinely too expensive."
+          ]
+        },
+        {
+          "t": "Choosing a concurrency approach",
+          "p": [
+            "Most concurrency needs are met by promises and await, with bounded parallelism to avoid overwhelming a resource. Workers are for CPU-bound work. Streams are for large or unbounded data arriving over time, where processing incrementally keeps memory constant. Cancellation should accompany any long-running or user-initiated operation.",
+            "The failure modes to design against are unhandled rejections, unbounded concurrency that exhausts connections, and blocking loops that freeze the interface. A small concurrency limiter, an abort signal on every request, and a rule that heavy computation goes in a worker together cover the majority of production incidents in asynchronous JavaScript."
+          ]
+        }
+      ]
+    }
+  ]
+}

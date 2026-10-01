@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #08090c;
+  color: #f6f2e9;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Subtle grain + aurora backdrop used across the app shell */
+.app-backdrop {
+  background:
+    radial-gradient(1100px 600px at 12% -10%, rgba(224, 127, 44, 0.16), transparent 60%),
+    radial-gradient(900px 500px at 92% 0%, rgba(51, 185, 139, 0.12), transparent 55%),
+    radial-gradient(700px 700px at 50% 120%, rgba(58, 66, 86, 0.28), transparent 60%),
+    #08090c;
+}
+
+.hairline {
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    rgba(246, 242, 233, 0.12),
+    transparent
+  );
+}
+
+::selection {
+  background: rgba(224, 127, 44, 0.35);
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(246, 242, 233, 0.14);
+  border-radius: 999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(246, 242, 233, 0.24);
+  background-clip: padding-box;
+}

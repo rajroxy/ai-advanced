@@ -1,0 +1,109 @@
+{
+  "part": "I. Foundations",
+  "chapters": [
+    {
+      "c": "What JavaScript Is",
+      "s": [
+        {
+          "t": "History and the ECMAScript standard",
+          "p": [
+            "JavaScript was created at Netscape in 1995 by Brendan Eich in ten days, originally under the name Mocha and then LiveScript, and renamed JavaScript for marketing reasons even though it has almost nothing to do with Java. Microsoft responded with JScript, and the resulting incompatibilities pushed the language into a standards body. In 1997 the first edition of ECMA-262 appeared, defining a language called ECMAScript. JavaScript is the practical implementation of that standard, and the names are used almost interchangeably today.",
+            "The standard is versioned by year since 2015: ES2015 or ES6 introduced classes, modules, arrow functions, promises, let, const and generators in one large release, and every year since adds smaller features. Engines implement features incrementally, and compatibility tables show which features are available where. When documentation says something is a proposal, it may be usable behind a flag or in the newest engines, but it is not yet guaranteed for production."
+          ]
+        },
+        {
+          "t": "Where JavaScript runs",
+          "p": [
+            "JavaScript needs a host environment that provides an engine plus platform APIs. In a browser the engine is embedded in the browser and the host APIs are the DOM, fetch, storage, canvas, and events. Outside the browser, Node.js embeds the V8 engine and provides file system, network, and process APIs; Deno and Bun offer similar capabilities with different defaults and tooling. The core language is the same everywhere, but the available globals differ, which is the single most common source of confusion when moving code between environments.",
+            "Because the language core is shared, code can be written once and adapted with feature detection. The rule of thumb is that syntax and built-in objects come from ECMAScript and are portable, while anything reached through window, document, process, or Deno is host-specific. A well-structured project isolates the host-specific parts so the reasoning code stays portable."
+          ]
+        },
+        {
+          "t": "Design character and goals",
+          "p": [
+            "JavaScript is dynamically typed, prototype-based, single-threaded with an event loop, and multi-paradigm. It borrows syntax from Java and C, first-class functions from Scheme, and prototypes from Self. Values carry their type at runtime rather than being declared, objects inherit from other objects rather than from classes in the classical sense, and functions are ordinary values that can be stored, passed and returned.",
+            "The language favours permissiveness and backwards compatibility. It coerces types in surprising ways, never removes old features, and prefers to keep old pages working rather than to break them. This means a modern style is partly a matter of discipline: use strict mode, prefer const, compare with the strict equality operator, and treat coercing operators with care. Mastering JavaScript is largely learning which of its permissive behaviours are useful and which are traps."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "How JavaScript Runs",
+      "s": [
+        {
+          "t": "Parsing, bytecode and just-in-time compilation",
+          "p": [
+            "An engine first parses source text into an abstract syntax tree, reporting syntax errors before anything executes. It then compiles the tree into bytecode, a compact intermediate form, and begins executing. Modern engines add a just-in-time compiler: code that runs often is recompiled into optimised machine code using assumptions about the types it sees. If those assumptions later fail, the optimised version is discarded and execution falls back to a slower path, which is why writing functions that always receive the same shapes of data can be dramatically faster.",
+            "Parsing is eager at the top level and lazy for functions: a function body may be parsed only when it is first called. This keeps startup fast for large programs. The practical consequence is that a syntax error inside a function might only surface when that function runs, while a top-level syntax error stops the whole script from loading."
+          ]
+        },
+        {
+          "t": "The runtime: stack, heap and queues",
+          "p": [
+            "Execution happens on a call stack of frames, one per active function call, with primitive values and references stored in frames. Objects, arrays, functions and other reference values live in a garbage-collected heap, and a variable that holds an object actually holds a reference to it. Deep recursion can exhaust the stack and throw a range error, which is why deep loops should usually be iterative.",
+            "Alongside the stack, the runtime keeps queues. Timers, network responses and user input enqueue tasks; promise reactions enqueue microtasks. The event loop repeatedly runs the current task to completion, then drains all microtasks, then picks the next task. Understanding this single-threaded model explains why a long synchronous loop freezes a page, and why promise callbacks can run before a timer that was scheduled earlier."
+          ]
+        },
+        {
+          "t": "Engines and compatibility",
+          "p": [
+            "The major engines are V8 in Chrome, Edge and Node, SpiderMonkey in Firefox, and JavaScriptCore in Safari. They agree on the standard, so the language behaves the same, but they differ in performance characteristics, debugging tools and how quickly new features arrive. Safari in particular historically lags on new syntax, so shipping code should target the slowest engine you support or be compiled down by a tool such as Babel or a bundler.",
+            "Feature detection is more robust than version detection. Instead of guessing the browser, test the capability directly: check whether a function exists before calling it, or use optional chaining and fall back. This keeps code working as engines converge and avoids brittle user-agent parsing, which is discouraged because user-agent strings are easily spoofed and often misleading."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Lexical Structure and Syntax",
+      "s": [
+        {
+          "t": "Characters, whitespace and comments",
+          "p": [
+            "Source text is a sequence of Unicode characters. JavaScript is case sensitive, so total and Total are different names. Whitespace and line breaks separate tokens and are otherwise ignored, which is why pretty formatting has no runtime effect. Identifiers begin with a letter, an underscore or a dollar sign and may contain digits after the first character; Unicode letters are allowed. Certain words such as let, class and return are reserved and cannot be used as names.",
+            "Comments come in two forms. A line comment starts with two slashes and ends at the newline, and a block comment is delimited by slash-star and star-slash and may span lines. Block comments do not nest. Comments should explain intent rather than restate code; good names and small functions remove the need for most of them. A special comment syntax at the top of a script, such as one starting with hash-bang, marks an executable script for Unix-like systems in Node."
+          ]
+        },
+        {
+          "t": "Statements, expressions and automatic semicolons",
+          "p": [
+            "An expression produces a value, such as a number literal or a call, while a statement performs an action, such as an if or a loop. Declarations, assignments, loops and blocks are statements; function calls and operators build expressions from smaller expressions. A program is a list of statements, and a block groups statements in braces.",
+            "JavaScript inserts semicolons automatically in many places to make the language easier to write. The rule is that a semicolon is added when the next token cannot continue the current statement, and at line breaks in specific positions. This usually works but fails in a few well-known cases, most notably when a line begins with an opening parenthesis, an opening bracket, a template literal, or an operator such as plus. The safe habit is to end statements with semicolons explicitly and to avoid starting a line with those tokens."
+          ]
+        },
+        {
+          "t": "Strict mode",
+          "p": [
+            "Strict mode opts into a stricter set of rules. It is enabled per script or per function with the string directive use strict at the top, and modules, classes and most modern tooling enable it automatically. In strict mode, assigning to an undeclared variable throws instead of creating a global, deleting variables is an error, duplicate parameter names are rejected, and the value of this inside a plain function call is undefined rather than the global object.",
+            "Strict mode exists to turn silent mistakes into loud errors, and almost all new code should run in it. The one behaviour worth remembering is that this becomes undefined in plain calls, which catches methods invoked without a receiver. Because modules and classes are always strict, a modern codebase is usually strict everywhere without any explicit directive."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Variables, Scope and Hoisting",
+      "s": [
+        {
+          "t": "var, let and const",
+          "p": [
+            "var declares a function-scoped variable and is the original keyword. let declares a block-scoped variable that may be reassigned, and const declares a block-scoped binding that cannot be reassigned, though the value it points to may still be mutated if it is an object. Block scope means the binding exists only inside the nearest enclosing braces, such as an if or for block.",
+            "The modern default is const, switching to let only when reassignment is genuinely needed, and never using var in new code. const communicates that a name will not be rebound and prevents a class of accidental bugs. Note that const does not make objects immutable: const list equals an array still allows list.push, because only the binding is fixed, not the contents."
+          ]
+        },
+        {
+          "t": "Hoisting and the temporal dead zone",
+          "p": [
+            "Before code runs, the engine scans each scope and registers its declarations. Function declarations are fully hoisted, so they can be called before their textual position. Variables declared with var are hoisted but initialised to undefined, which is why reading one before its assignment yields undefined rather than an error. Bindings declared with let and const are also hoisted but remain in a temporal dead zone until the declaration is evaluated; reading them earlier throws a reference error.",
+            "The temporal dead zone is a safety feature, not a quirk to memorise. It prevents the confusing undefined values that var produces and encourages declaring names close to where they are used. The practical rule is to declare variables at the top of the smallest block that needs them, and to rely on hoisting only for function declarations, where it is a deliberate part of the design."
+          ]
+        },
+        {
+          "t": "Global scope, globalThis and shadowing",
+          "p": [
+            "Each environment has a global object that holds globally reachable values. In browsers it is window or self, in Node it is global, and the standardised name that works everywhere is globalThis. A top-level var in a script becomes a property of the global object, while a top-level let or const creates a binding in the global lexical scope that is not a property of it. Modules have their own scope and do not leak top-level names to the global object at all.",
+            "Shadowing occurs when an inner scope declares a name that already exists in an outer scope, hiding it for the duration of the inner block. Shadowing is legal and often intentional, such as a loop variable named item inside a function that also has an item parameter, but it can hide a value you meant to use. Linting rules such as no-shadow flag suspicious cases. Rely on function and block scope rather than globals to avoid collisions between parts of a large program."
+          ]
+        }
+      ]
+    }
+  ]
+}

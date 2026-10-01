@@ -1,0 +1,109 @@
+{
+  "part": "X. Reference and Craft",
+  "chapters": [
+    {
+      "c": "Dates, Time and Internationalisation",
+      "s": [
+        {
+          "t": "The Date object and its hazards",
+          "p": [
+            "The Date type stores a moment in time as milliseconds since the epoch in UTC, but most of its methods read and write in the local time zone, which creates confusion. Month numbers are zero-based while day numbers are one-based, and parsing a string is implementation-defined except for the ISO format. These inconsistencies are why date handling is a common source of defects.",
+            "Arithmetic on dates is done through timestamps, which are plain numbers. Subtracting two timestamps yields a duration in milliseconds; adding a duration produces a new date. Never use the two-argument Date constructor for arithmetic, and never compare formatted strings to determine order. Convert to timestamps, compute, then format for display, keeping the storage format separate from the presentation format."
+          ]
+        },
+        {
+          "t": "Formatting, parsing and time zones",
+          "p": [
+            "Intl.DateTimeFormat formats a date according to a locale and options for date style, time style, calendar and time zone. Intl.RelativeTimeFormat produces phrases such as three days ago, and Intl.NumberFormat and Intl.PluralRules handle numeric and grammatical localisation. These built-ins remove the need to hand-roll formats and keep output correct across regions.",
+            "Store timestamps in UTC and convert to a local zone only for display, keeping the original instant intact. Be explicit about a time zone whenever a value is shown to a user. For complex rules such as business days, daylight-saving transitions or recurring events, use a dedicated date library built on the standard time zone database rather than implementing the rules yourself, because they are subtle and change over time."
+          ]
+        },
+        {
+          "t": "Working with durations and schedules",
+          "p": [
+            "A duration is a length of time and is best represented as a number of milliseconds or a structured object of components, never as a date. Converting between units is simple multiplication, but calendar arithmetic such as adding a month is not arithmetic, because months have different lengths and daylight saving changes the number of hours in a day; a date library handles these cases correctly.",
+            "Schedules and timers are separate from dates: setInterval ticks on the event loop and drifts, while a scheduled job on a server needs a durable mechanism such as a queue or a cron entry. In the browser, computing the next occurrence and using a timeout, then recomputing after it fires, is more accurate than a fixed interval. Always account for the system clock moving forward or backward and for the tab being suspended in the background."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Debugging and Developer Tools",
+      "s": [
+        {
+          "t": "Breakpoints, stepping and the console",
+          "p": [
+            "Browser developer tools provide a debugger that can pause execution at a breakpoint, step over and into calls, inspect local and closure scopes, and evaluate expressions in the current context. A conditional breakpoint pauses only when an expression is true, which is invaluable in loops, and a logpoint prints without pausing. The call stack panel shows how execution arrived, which is usually the fastest way to understand an unexpected value.",
+            "The console methods include log, warn, error, table for tabular data, group for nesting, time for durations, count for tallies and trace for a stack. Structured logging with objects rather than concatenated strings keeps logs readable. In Node, the same inspector protocol is available, and a debugger can be attached to a running process or a test run."
+          ]
+        },
+        {
+          "t": "Network, performance and memory panels",
+          "p": [
+            "The network panel shows every request with its headers, payload, timing and response, which is the first stop for a slow page or a failing API call. The waterfall view reveals serialisation that could be parallel, and the size column reveals assets that should be compressed or split. Filtering by type and by status quickly isolates the request at fault.",
+            "The performance panel records a trace of JavaScript, layout, paint and idle time, exposing long tasks that block interaction. The memory panel takes heap snapshots and allocation timelines to find retained objects and confirm a leak. The application panel inspects storage, caches, cookies and service workers. Together these panels turn performance work from speculation into measurement."
+          ]
+        },
+        {
+          "t": "Debugging technique",
+          "p": [
+            "Reproduce the problem reliably before changing anything. Reduce the failing case to the smallest input that still fails, because a small case is both easier to reason about and a ready-made regression test. Form a hypothesis, test it with the cheapest possible experiment, and discard the explanation once evidence contradicts it rather than adding a second fix on top.",
+            "Read the error message and the stack trace from the top, not the bottom, and identify the first frame inside your own code. Check assumptions about inputs at the boundary of the failing function, because the defect is often upstream. When a bug resists, explain the code line by line to a listener or a rubber duck; the act of narrating forces the reasoning that silent staring skips."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Common Pitfalls and Idioms",
+      "s": [
+        {
+          "t": "Frequent mistakes",
+          "p": [
+            "The most common pitfalls are using the loose equality operator, confusing the value of this in nested callbacks, mutating shared arrays and objects, forgetting to await a promise, and treating a falsy value such as zero or the empty string as absent. Others are relying on the automatic semicolon insertion in risky line positions, confusing shallow and deep copies, and assuming that const makes an object immutable.",
+            "Many of these are prevented by tooling: strict equality lint rules, the no-floating-promises check, and a type checker that distinguishes optional from present values. The rest are prevented by conventions: prefer const, avoid mutation across module boundaries, use optional chaining only at genuine boundaries, and default with the nullish operator rather than the logical or when zero or empty string are valid."
+          ]
+        },
+        {
+          "t": "Idioms worth adopting",
+          "p": [
+            "Guard clauses at the top of a function and early returns keep nesting shallow. Destructuring with defaults makes the data a function needs explicit at its signature. Deriving values instead of storing duplicates removes a whole class of synchronisation bugs. Small pure functions with names that state intent make the flow readable at a glance.",
+            "For collections, reach for map, filter, find and reduce before writing a manual loop, and switch to a plain loop when you need to break early or when the callback would obscure the logic. For asynchronous work, default to async and await with try-catch, use Promise.all for independent work, and attach an abort signal to anything that a user can cancel. These idioms make the common case simple and the failure case explicit."
+          ]
+        },
+        {
+          "t": "Readability and review",
+          "p": [
+            "Code is read far more often than it is written. Name things for what they mean rather than how they are implemented, keep functions short enough to hold in mind, and let the formatter settle style so reviews discuss behaviour instead of whitespace. Comments should explain why a surprising decision was made, because the code already says what it does.",
+            "A good change is small, has a clear purpose, includes tests for the behaviour it adds, and does not mix refactoring with feature work. Reviews are most useful when they question design and edge cases rather than style. The test of a well-written module is that a new reader can predict what it does before running it, which is the goal of clarity over cleverness."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Glossary and Cheat Sheets",
+      "s": [
+        {
+          "t": "Key terms",
+          "p": [
+            "Hoisting is the registration of declarations before execution. The temporal dead zone is the period before a let or const binding is initialised. A closure is a function together with the bindings it captured. The prototype chain is the sequence of prototypes consulted during property lookup. A microtask is a callback run after the current task and before the next, and a task is a unit of work taken from the event loop queue.",
+            "A promise is a placeholder for a future value; thenable is any object with a then method. A stream delivers data in chunks with backpressure. Tree shaking removes unused exports during bundling. A polyfill implements a missing built-in, while a transpiler rewrites syntax. Idempotent means an operation can be repeated with the same effect. Backpressure is the mechanism by which a slow consumer slows a fast producer."
+          ]
+        },
+        {
+          "t": "Quick reference",
+          "p": [
+            "Declare with const by default and let when reassignment is needed. Convert to a number explicitly with Number and validate; compare with triple equals except for the null check. Use the nullish coalescing operator for defaults when zero or empty string are valid. Build strings with template literals, transform arrays with map and filter, and model keyed lookup with a Map when keys are dynamic.",
+            "Run asynchronous work with async and await, parallelise independent calls with Promise.all, and cancel with an AbortController. Catch errors at the boundary that can act on them and rethrow the rest. Store timestamps in UTC and format with Intl. Prefer textContent over innerHTML with untrusted data. Measure before optimising, and remove listeners and timers when a component is disposed."
+          ]
+        },
+        {
+          "t": "Going further",
+          "p": [
+            "The authoritative reference is the ECMAScript specification, which defines exact behaviour, and the MDN documentation, which explains it for practitioners with examples and compatibility tables. Reading the specification is worthwhile when behaviour is surprising, such as coercion order or the precise semantics of equality.",
+            "Beyond the language, the ecosystem is built from a small set of durable ideas: modules, the event loop, promises, the prototype model and the standard library. Mastering those ideas transfers across frameworks and runtimes, whereas framework-specific knowledge dates quickly. The most reliable way to deepen understanding is to build something small without a framework, then read the source of a library that solves the same problem well."
+          ]
+        }
+      ]
+    }
+  ]
+}

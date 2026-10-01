@@ -1,0 +1,135 @@
+{
+  "part": "III. Control Flow and Functions",
+  "chapters": [
+    {
+      "c": "Conditionals and Switch",
+      "s": [
+        {
+          "t": "if, else and early returns",
+          "p": [
+            "The if statement runs a block when a condition is truthy, with optional else and else-if branches. Because conditions coerce, a value such as an empty string or zero takes the false branch even though it is not the boolean false. Keep conditions explicit when the falsy distinction matters, for example testing a length greater than zero rather than testing the array itself.",
+            "Guard clauses return early when preconditions fail, which flattens nesting and makes the main path obvious. A function that validates its arguments at the top and returns or throws keeps the body free of deeply indented conditionals. This style pairs well with functions that do one thing, so each branch is short and testable."
+          ]
+        },
+        {
+          "t": "switch and lookup objects",
+          "p": [
+            "A switch compares one expression against a series of cases using strict equality and runs the matching branch until a break or the end of the block. Forgetting break causes fallthrough into the next case, which is occasionally intentional but usually a bug. A default case handles unmatched values. Switch is convenient for a handful of discrete cases and is more readable than a chain of else-if when the same value is tested repeatedly.",
+            "Switch expressions in modern JavaScript return a value with arrow syntax and no fallthrough, which removes the break hazard. For mappings from key to handler, a lookup object or a Map is often cleaner than either form, because it separates data from control flow and can be built dynamically. Choosing a lookup object also makes the set of cases inspectable and testable."
+          ]
+        },
+        {
+          "t": "Exceptions and control flow",
+          "p": [
+            "Throw and try-catch-finally provide non-local control transfer. A throw unwinds the stack until a matching catch is found, running finally blocks along the way. Catching only what you can handle, and rethrowing the rest, keeps errors from being silently swallowed. The pattern try, catch, finally guarantees cleanup while still allowing the error to propagate after finally runs if it was not handled.",
+            "Do not use exceptions for ordinary control flow such as ending a loop or signalling an expected absence; they are for exceptional conditions and carry a performance and readability cost. In asynchronous code, errors do not propagate across callbacks naturally, so promises and async functions provide their own error channel that integrates with try-catch."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Loops and Iteration",
+      "s": [
+        {
+          "t": "for, while and do-while",
+          "p": [
+            "A for loop has initialisation, condition and update expressions evaluated in a fixed order and is the natural choice when the iteration count is known. A while loop tests the condition before each iteration and suits conditions that change unpredictably, such as reading until a stream ends. A do-while tests after the body and therefore runs at least once, which fits prompts and retry logic.",
+            "Loop variables declared with let are scoped to each iteration, so closures created inside the loop capture the value for that iteration rather than a shared variable. With var, all closures share one binding, a classic bug now largely historical. Prefer the narrowest loop that expresses the intent, and prefer array methods such as map and filter when transforming collections."
+          ]
+        },
+        {
+          "t": "for-of, for-in and iterables",
+          "p": [
+            "The for-of loop iterates the values of any iterable, including arrays, strings, maps, sets and generators, and is the modern default for visiting values. The for-in loop iterates enumerable property names including inherited ones and is intended for objects, not arrays; using it on an array yields string indices and can pick up added properties, which is almost never desired.",
+            "Iterables provide a Symbol.iterator method returning an iterator with a next method, and the loop protocol calls that method until it reports done. Understanding the protocol explains why custom objects can be made iterable and why spread and destructuring work on the same set of values. Breaking out of a for-of loop with break is permitted, which distinguishes it from forEach, whose callback cannot stop the iteration."
+          ]
+        },
+        {
+          "t": "break, continue and labels",
+          "p": [
+            "The break statement exits the nearest loop or switch, and continue skips to the next iteration. Inside nested loops, break leaves only the innermost one. A label before a loop allows break and continue to target an outer loop by name, which is occasionally the clearest way to express a two-dimensional search, though extracting a function with an early return is usually tidier.",
+            "The array methods forEach, map and filter cannot be broken out of, so a loop that must stop early should use for-of or a traditional for. This is a common performance and correctness consideration: processing a million records with forEach continues to the end even after finding the match, while a for-of loop can return immediately."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Functions",
+      "s": [
+        {
+          "t": "Declarations, expressions and arrows",
+          "p": [
+            "A function declaration is hoisted and can be called before it appears. A function expression is a value assigned to a variable and is created when that line runs. Arrow functions are a compact expression form that inherits this from the surrounding scope instead of having its own, has no arguments object, and cannot be used as a constructor. Choose arrows for short callbacks and for methods that should capture the enclosing this, and named declarations for top-level logic where hoisting and a clear stack-trace name are helpful.",
+            "An arrow with a block body needs an explicit return, while an arrow with a concise body returns its expression automatically. Returning an object literal from a concise arrow requires wrapping the braces in parentheses so they are not parsed as a block. Arrow functions are the idiomatic way to preserve this inside callbacks such as array methods and timers."
+          ]
+        },
+        {
+          "t": "Parameters, defaults and rest",
+          "p": [
+            "Parameters may have default values, evaluated when the argument is undefined, which lets callers omit trailing arguments. A rest parameter collects remaining arguments into an array and must be last. Destructuring in the parameter list pulls fields out of an object or array argument and can supply defaults and rename bindings, which makes functions that accept an options object self-documenting.",
+            "The arguments object exists in non-arrow functions and is array-like but not an array. Prefer rest parameters, which are a real array and work in arrow functions. Passing an object as a single argument lets options grow without changing the signature, a pattern used throughout the platform APIs, such as fetch with a request init object."
+          ]
+        },
+        {
+          "t": "Higher-order functions and composition",
+          "p": [
+            "Functions are values, so they can be passed as arguments and returned as results. A higher-order function takes or returns a function, which enables callbacks, decorators, factories and the array methods. This is the foundation of functional style in JavaScript: small functions composed into larger behaviour rather than inheritance hierarchies.",
+            "Composition builds a new function by chaining others, applying them right to left or left to right depending on the helper. Currying turns a function of several arguments into a sequence of single-argument functions, which is useful for partial application. Memoisation caches a pure function's results by its arguments; it is only correct for pure functions and only worthwhile when calls repeat, and its cache must be bounded to avoid unbounded memory growth."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Closures and Scope",
+      "s": [
+        {
+          "t": "Lexical scope",
+          "p": [
+            "Scope is determined by where code is written, not where it is called. A nested function can read and write the bindings of every enclosing scope, and name resolution walks outward until it finds the binding or reaches the global scope. This lexical rule is what makes inner functions depend on their source position rather than on the caller.",
+            "A block introduces scope for let and const, so a variable declared inside an if or for block is not visible outside it. Function declarations create scope too. Because scope is static, a reader can determine what a name refers to by looking at the surrounding text, which is a deliberate design choice over dynamic scoping used by some older languages."
+          ]
+        },
+        {
+          "t": "Closures",
+          "p": [
+            "A closure is a function together with the bindings it captured from its lexical scope. When an inner function outlives the call that created it, the captured variables are kept alive, so a counter factory can return a function that increments a private variable. Closures are how private state is expressed without classes, and how partial application and event handlers remember their context.",
+            "Closures capture bindings, not snapshots of values, so a variable changed later is seen changed by the closure. This is a benefit for shared state and a hazard inside loops with var. A closure keeps its captured values reachable, which can unintentionally retain large data structures and cause a memory leak; releasing the reference when it is no longer needed lets the garbage collector reclaim it."
+          ]
+        },
+        {
+          "t": "Immediately invoked and module patterns",
+          "p": [
+            "An immediately invoked function expression runs as soon as it is defined and creates a private scope, historically used to avoid polluting the global object. It is still useful for running asynchronous setup once, though top-level await and modules have reduced the need. The pattern of wrapping code in a function that exposes only a chosen interface is the module pattern.",
+            "Before ES modules, the module pattern plus closures provided encapsulation: private variables lived in the function scope and public methods were attached to a returned object. Classes and modules now cover most of those use cases, but the underlying closure mechanism is unchanged. Recognising the pattern helps when reading older codebases and libraries that predate modules."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "this, call, apply and bind",
+      "s": [
+        {
+          "t": "How this is determined",
+          "p": [
+            "The value of this depends on how a function is called. As a method it is the receiver object; as a plain call in strict mode it is undefined and in sloppy mode the global object; as a constructor with new it is the newly created object; and inside an arrow function it is inherited from the enclosing lexical scope. The call site decides, not the definition, except for arrows which have no this of their own.",
+            "Because this is determined at call time, extracting a method and calling it separately loses its receiver, which is why passing an object's method as a callback often fails with an undefined property error. The fixes are to bind the method, wrap it in an arrow, or capture the receiver in a variable. Modern style favours arrow functions inside methods so callbacks keep the method's this."
+          ]
+        },
+        {
+          "t": "call, apply and bind",
+          "p": [
+            "The call and apply methods invoke a function with an explicitly chosen this, differing only in how arguments are passed: call takes them individually and apply takes an array. The bind method returns a new function permanently bound to a given this and optional preset arguments, enabling partial application. These methods make function borrowing possible, such as applying array methods to array-like objects.",
+            "Borrowing is now less necessary because spread converts array-like values to arrays. Bind is still valuable for event handlers and for callbacks that will be invoked later without a receiver. Remember that binding creates a new function, so binding the same method repeatedly in a hot path allocates unnecessarily; bind once and reuse the result."
+          ]
+        },
+        {
+          "t": "Classes, methods and this in practice",
+          "p": [
+            "Class methods are strict and have this bound to the instance when called normally. A common bug is passing an instance method as a callback, where this becomes undefined. Solutions include an arrow class field that captures the instance, binding in the constructor, or calling the method through an arrow at the use site. Class fields declared with an arrow turn the method into an instance property that is already bound.",
+            "Do not assume this is always an object. In strict mode plain calls produce undefined, and frameworks sometimes call functions with a chosen receiver. When a function does not need a receiver, write it as a standalone function or an arrow so this is irrelevant, which removes a whole class of bugs and makes the function easier to reuse."
+          ]
+        }
+      ]
+    }
+  ]
+}

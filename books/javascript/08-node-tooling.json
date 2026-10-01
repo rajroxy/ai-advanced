@@ -1,0 +1,135 @@
+{
+  "part": "VIII. Node.js and Tooling",
+  "chapters": [
+    {
+      "c": "Node.js Fundamentals",
+      "s": [
+        {
+          "t": "The runtime and its globals",
+          "p": [
+            "Node.js embeds the V8 engine and adds host APIs for the file system, network, processes and timers. It provides globals such as process, console, Buffer and the URL class, and it does not provide the DOM. The process object exposes command-line arguments, environment variables, the working directory, the standard streams and the ability to exit with a code, which is how a script communicates success or failure to a shell.",
+            "Node is event-driven and non-blocking for input and output, so a single process can handle many concurrent connections, which is why it suits servers and command-line tools. Environment variables are read from process.env and are strings; they must be parsed and validated before use. Configuration should come from the environment rather than hard-coded values, so the same code runs in different deployments."
+          ]
+        },
+        {
+          "t": "Core modules and modern APIs",
+          "p": [
+            "Node ships many built-in modules, including fs for files, path for path manipulation, os for system information, http for servers, events for the emitter base type, crypto for hashing and encryption, stream for streaming data, and child_process and worker_threads for running other code. These are imported by bare name, sometimes with a node prefix that makes the origin explicit.",
+            "The file system module offers callback, promise and synchronous variants. Prefer the promise-based API in asynchronous code, and use the synchronous calls only during startup where a blocking read is acceptable and simpler. Path manipulation must use the path module so separators are handled correctly across platforms, and the URL class should be used for constructing and parsing URLs rather than string concatenation."
+          ]
+        },
+        {
+          "t": "Events and the emitter pattern",
+          "p": [
+            "Much of Node is built on EventEmitter, where objects emit named events that listeners subscribe to. Methods include on, once, off and emit, and the pattern underpins servers, streams and sockets. A listener added with once runs at most one time, which suits initialisation and one-off notifications. Passing an error to an emit with the name error and no listener throws, so error events must be handled.",
+            "The emitter pattern is a form of the observer pattern and is useful outside Node too, as a lightweight way to decouple producers from consumers within an application. Watch for listener leaks, where listeners are added repeatedly without being removed, and for the loss of ordering assumptions when many listeners run for one event."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Files, Streams and Buffers",
+      "s": [
+        {
+          "t": "Reading and writing files",
+          "p": [
+            "The promise-based file API provides readFile and writeFile for whole-file operations, and appendFile for adding to the end. Whole-file reads are fine for small configuration and data files but load everything into memory, so large files should be processed as streams. Writing atomically is important for durability: write to a temporary file and rename it into place, so a crash mid-write does not leave a corrupt file.",
+            "Directory operations include readdir for listing, mkdir with the recursive option to create nested directories, stat for metadata, and rm with force and recursive for removal. Always handle the not-found case explicitly rather than relying on exceptions propagating, and be careful with recursive removal and user-supplied paths, which are a security risk if not validated."
+          ]
+        },
+        {
+          "t": "Streams and backpressure",
+          "p": [
+            "A stream delivers data in chunks rather than all at once. Readable streams produce data, writable streams consume it, and transform streams convert between them. Piping connects a readable to a writable and handles backpressure automatically, slowing the producer when the consumer cannot keep up. This is why a large file can be processed with constant memory.",
+            "The pipeline helper chains streams and propagates errors and cleanup, which is safer than manual piping because a failure in the middle still closes every stage. Async iteration over a readable stream gives a simple for-await loop over chunks. Choose streams when the data is large or arrives over time, and simple whole-value calls when the data comfortably fits in memory."
+          ]
+        },
+        {
+          "t": "Buffers and binary data",
+          "p": [
+            "A Buffer is a fixed-length view over a raw memory block, the Node equivalent of a typed array with extra conversion methods. Buffers are returned by file and network reads, and can be created from strings with an encoding, most often utf8, or from base64 for encoded content. Concatenating buffers with Buffer.concat is the standard way to assemble chunked data.",
+            "Buffers are mutable and share memory with their source, so a slice of a buffer sees later writes to the original. When handing a buffer to code that must not change it, copy first. For text processing, decode the buffer to a string, but be careful with multi-byte characters split across chunk boundaries, which requires a streaming decoder rather than per-chunk conversion."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "npm, Packages and Semver",
+      "s": [
+        {
+          "t": "package.json and dependency kinds",
+          "p": [
+            "The package manifest records the name, version, entry points, scripts and dependencies. Dependencies are needed at runtime, devDependencies only for development and building, and peerDependencies express compatible versions a plugin expects the host to provide. Scripts are the project's command interface and should include start, build, test and lint so a new contributor can run the project without reading documentation.",
+            "The lock file records the exact resolved versions of every dependency, including transitive ones, and must be committed for reproducible installs. Without it, two machines can install different trees from the same manifest. When adding a dependency, prefer a few well-maintained packages over many small ones, and check size, licence, last release and open issues, because a dependency is code you now maintain indirectly."
+          ]
+        },
+        {
+          "t": "Semantic versioning and ranges",
+          "p": [
+            "A version has three parts: major, minor and patch. Semantic versioning says a major change may break compatibility, a minor change adds functionality compatibly, and a patch fixes a defect. Ranges express acceptance: a caret allows changes that do not modify the left-most non-zero digit, a tilde allows patch-level changes, and an exact version allows nothing else. Precise ranges plus a lock file give reproducible installs.",
+            "In practice, semver is a promise that maintainers sometimes break, so upgrading a major version is a deliberate task that reads the changelog and runs the test suite. Automated dependency updates help only when the tests are trustworthy. Pinning transitive dependencies through the lock file, and auditing for known vulnerabilities periodically, keeps a project healthy."
+          ]
+        },
+        {
+          "t": "Workspaces and publishing",
+          "p": [
+            "A monorepo keeps several packages in one repository and links them with workspaces, so a change in one package is immediately visible to the others without publishing. This suits a library and an application that consume it, or a set of related utilities. The trade-off is build and tooling complexity, which is worth it only when packages genuinely change together.",
+            "Publishing a package involves a unique name, an entry point, and careful use of the files field or an ignore file so only the intended output ships. A provenance and licence field, a README, and a sensible set of exports make a package usable. Version and changelog management should be automated so releases are consistent and the source of each change is recorded."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Testing and Quality",
+      "s": [
+        {
+          "t": "Unit tests and assertions",
+          "p": [
+            "A unit test exercises one unit of behaviour and asserts an expected result. The arrange, act, assert structure keeps tests readable: set up the inputs, perform the action, then check the outcome. Tests should be independent, deterministic and fast, because a slow or flaky suite stops being run. A good unit test fails for exactly one reason, so the failure message points at the defect.",
+            "Popular runners in the JavaScript ecosystem provide a describe and it structure with expect-style assertions, and many support snapshot testing where a value is compared against a stored representation. Snapshots are useful for large outputs but must be reviewed when they change, otherwise they merely freeze bugs. Prefer explicit assertions where the important properties can be named, and reserve snapshots for structured output that is tedious to assert field by field."
+          ]
+        },
+        {
+          "t": "Test doubles and integration tests",
+          "p": [
+            "When a unit depends on the network, the clock or the file system, those dependencies are replaced by doubles: stubs return canned values, spies record calls, and mocks assert interactions. Injecting dependencies makes this possible without patching globals, which keeps tests isolated. Avoid over-mocking, because a test that mocks every collaborator verifies implementation details rather than behaviour and breaks on harmless refactors.",
+            "Integration tests exercise several units together, including the real database or a faithful in-memory substitute, and catch wiring errors that unit tests miss. End-to-end tests drive the whole system through its user interface and are slow and brittle, so keep them few and focused on critical journeys. The pyramid of many fast unit tests, some integration tests and a handful of end-to-end tests balances confidence against maintenance cost."
+          ]
+        },
+        {
+          "t": "Coverage, types and contracts",
+          "p": [
+            "Coverage measures which lines and branches a suite executes. It is a diagnostic rather than a goal: high coverage with weak assertions is possible, and low coverage in a critical module is a warning. Track coverage by module and treat a drop as a prompt to add tests, not as an end in itself. Mutation testing, which changes code slightly to see whether tests fail, is a stronger signal of test quality.",
+            "In addition to tests, static checks catch whole classes of defects before execution. A type checker, a linter and a formatter together enforce consistency and catch typos, unused variables, floating promises and unreachable code. Running these in continuous integration on every change makes the feedback loop short and keeps the main branch healthy."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Bundlers, Linters and Transpilers",
+      "s": [
+        {
+          "t": "Bundling and building",
+          "p": [
+            "A bundler reads the module graph, resolves imports, and produces one or a few assets a browser can load, while also transforming syntax, handling non-JavaScript assets and applying optimisations such as minification and dead code elimination. Development builds favour speed and readable output with source maps, and production builds favour size and loading performance. Code splitting produces multiple chunks loaded on demand.",
+            "The trade-off of bundling is a build step and a source map for debugging. Because a browser can now load ES modules directly, small projects may skip bundling entirely, but features such as tree shaking across dependencies, asset handling and compatibility transforms still motivate a bundler for most applications. Modern tools balance a native-speed compiler with a rich plugin ecosystem."
+          ]
+        },
+        {
+          "t": "Transpilation and target selection",
+          "p": [
+            "A transpiler rewrites modern syntax into an older equivalent, so the source can use the latest features while running in older engines. It also converts newer APIs through polyfills, which add implementations for missing built-ins. The target is chosen by the oldest environment that must be supported, and shipping to a narrower target reduces both the transform work and the output size.",
+            "Transpiling has costs: generated code is harder to read and debug, some features cannot be emulated faithfully, and the pipeline adds build time. If the target environments all support the features used, the transpiler may be unnecessary. Modern practice is to target recent evergreen browsers, reserve transpilation for the few features not yet universal, and keep an eye on the actual support matrix rather than on folklore."
+          ]
+        },
+        {
+          "t": "Linting, formatting and types",
+          "p": [
+            "A linter analyses code for suspicious patterns and style violations, with rules configured per project and extensible with plugins. It catches unused variables, shadowed names, floating promises, inconsistent equality operators and many accessibility issues. A formatter decides layout automatically, removing debates about whitespace and making diffs small and reviewable. Running both automatically before a commit keeps the codebase uniform.",
+            "A type checker adds static types either through annotations or through inference, catching a large class of runtime errors at build time. JavaScript projects can adopt types gradually by checking the existing code without rewriting it, gaining most of the safety with little disruption. Types serve as executable documentation, improve editor tooling, and make refactoring safer, which is why they are common in large codebases."
+          ]
+        }
+      ]
+    }
+  ]
+}

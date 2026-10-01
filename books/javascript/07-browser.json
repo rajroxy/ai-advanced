@@ -1,0 +1,135 @@
+{
+  "part": "VII. The Browser Platform",
+  "chapters": [
+    {
+      "c": "The DOM",
+      "s": [
+        {
+          "t": "Selecting and creating nodes",
+          "p": [
+            "The document object is the entry point to the DOM, a tree of nodes representing the page. querySelector returns the first match for a CSS selector and querySelectorAll returns a static NodeList of all matches, while the older getElementById and class-based lookups remain for speed and compatibility. Because NodeList is not an array, convert it with Array.from or spread before using array methods.",
+            "New content is built with createElement, document fragments for batching, and text nodes for safety. Setting textContent replaces a node's text safely, while innerHTML parses a string as HTML and is the classic injection vector when the string contains user input. Prefer creating elements and setting textContent, or a templating library that escapes by default, over assembling markup strings by hand."
+          ]
+        },
+        {
+          "t": "Traversal, attributes and classes",
+          "p": [
+            "Nodes are reached through parent, child and sibling properties, with children restricted to elements and childNodes including text and comment nodes. Attributes are read and written with getAttribute and setAttribute for arbitrary names, and through reflected properties such as id and value for the well-known ones. The classList API adds, removes and toggles classes without string manipulation, and the style property sets inline styles.",
+            "Reading layout properties such as offsetWidth or getBoundingClientRect forces the browser to compute layout, and interleaving reads with writes causes repeated reflow, known as layout thrashing. Batch reads first, then writes, or use requestAnimationFrame. When many nodes change, build them off the document with a fragment and insert once, so the browser lays out the change a single time."
+          ]
+        },
+        {
+          "t": "Reactive updates and reconciliation",
+          "p": [
+            "Hand-writing DOM updates works but scales poorly because the code must track which node corresponds to which piece of state. Frameworks solve this by describing the desired output as a function of state and letting a reconciler compute the minimal set of node operations, which removes the manual bookkeeping and the class of bugs where the view and the data disagree.",
+            "Even without a framework, the principle of deriving the view from state is worth following. Keep a single source of truth, render from it, and never read state back out of the DOM. When updates are frequent, coalesce them and flush on the next animation frame, and consider virtualising long lists so only visible rows exist in the document."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Events",
+      "s": [
+        {
+          "t": "Listeners and propagation",
+          "p": [
+            "An event listener is registered with addEventListener, receiving the event object and running when the event fires on that element or reaches it during propagation. Events travel through capture, target and bubble phases. By default a listener runs in the bubbling phase, when the event rises from the target towards the root; passing true registers it for the capture phase, when the event descends. The stopPropagation method halts further travel and preventDefault cancels the browser's default action.",
+            "Because events bubble, a single listener on a container can handle events from many descendants, which is called event delegation. Delegation reduces the number of listeners enormously for lists and tables, and it works for elements added later. To find the relevant element, walk up from the event target to the one matching a selector, or use the closest method, then branch on the data attribute or class that identifies the action."
+          ]
+        },
+        {
+          "t": "Common events and custom events",
+          "p": [
+            "Mouse events include click, pointerdown and pointermove, and the pointer events unify mouse, touch and pen. Keyboard events deliver key and code values, where key is the produced character and code is the physical key, which matters for layout-independent shortcuts. Form events include input, change and submit, and scrolling fires for scroll containers. Passive listeners should be used for touch and scroll handlers that never call preventDefault, letting the browser scroll without waiting.",
+            "Custom events let a component emit its own notifications. A CustomEvent carries a detail payload and can bubble, which makes it a lightweight messaging mechanism between decoupled parts of a page. Listeners should be removed when a component is destroyed to avoid leaks and duplicate handling, using a stored reference to the same function that was registered."
+          ]
+        },
+        {
+          "t": "Event handling patterns",
+          "p": [
+            "Debouncing delays handling until activity stops, which suits search-as-you-type and resize handlers. Throttling limits handling to a fixed rate, which suits scroll and pointer move. Both prevent overwhelming work during rapid input and are implemented with a timer and a stored reference, or imported from a utility library.",
+            "Prefer delegation over attaching a listener per item, use passive listeners for scrolling, and remove listeners when they are no longer needed. Avoid putting heavy synchronous work in an event handler, because it blocks input and rendering; schedule it or move it to a worker. These habits keep interaction smooth as the interface grows."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Networking",
+      "s": [
+        {
+          "t": "fetch and responses",
+          "p": [
+            "The fetch function performs an HTTP request and returns a promise for a Response. It resolves even for error status codes such as four hundred and four, so the response's ok property must be checked explicitly. The body is a stream that can be read once, as text, JSON, an array buffer or a blob, and reading it twice requires cloning the response first. Requests are configured with a method, headers, body and signal for cancellation.",
+            "Cross-origin requests are governed by CORS: the server must return appropriate headers, and certain requests trigger a preflight. Credentials are not sent by default and must be requested explicitly. Caching, redirects and referrer policy are controlled through the request init object. For progress reporting, reading the response body as a stream gives chunks and total bytes when the server provides a content length."
+          ]
+        },
+        {
+          "t": "WebSockets and server-sent events",
+          "p": [
+            "A WebSocket is a persistent, bidirectional connection created with the WebSocket constructor, with message, open, close and error events. It suits chat, collaboration and games where both sides push data frequently, at the cost of managing reconnection, heartbeats and message framing yourself. Binary and text frames are both supported.",
+            "Server-sent events push a one-way stream from the server over a plain HTTP connection, consumed with EventSource. The browser reconnects automatically and the protocol is simple, which makes it a good fit for live feeds, notifications and progress updates where the client only listens. Choose WebSockets for two-way interaction and server-sent events for one-way streaming, and use fetch with streaming as a third option when you need request headers or POST semantics."
+          ]
+        },
+        {
+          "t": "Reliability and caching",
+          "p": [
+            "Networks fail, so requests need timeouts, retries with backoff and jitter, and graceful degradation. Retry only idempotent operations unless the server supports idempotency keys, and cap the number of attempts to avoid amplifying an outage. Surface partial failures to the user rather than silently swallowing them.",
+            "HTTP caching is controlled by response headers such as cache-control and etag, and can be supplemented by a service worker for offline access. Understanding which responses may be cached and for how long removes redundant requests and improves perceived speed. A cache-busting query or a versioned asset path is used when a resource changes but its URL does not."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Storage in the Browser",
+      "s": [
+        {
+          "t": "Cookies, localStorage and sessionStorage",
+          "p": [
+            "Cookies are small key-value pairs sent with every matching request and are the mechanism for server sessions. They support attributes such as expiry, path, domain, secure and httponly, and the httponly and secure flags should be set for authentication cookies so scripts cannot read them and they are sent only over HTTPS. Because cookies travel with requests they add overhead and should be kept small.",
+            "localStorage and sessionStorage hold string key-value pairs in the browser, with sessionStorage cleared when the tab closes. They are synchronous, limited to a few megabytes, shared across the origin for localStorage, and accessible to any script on the page, so they must not hold secrets. The structured clone step is missing, so values must be serialised to JSON, and JSON parsing must handle corruption defensively."
+          ]
+        },
+        {
+          "t": "IndexedDB",
+          "p": [
+            "IndexedDB is a transactional, asynchronous object database intended for larger structured data, including files and blobs. It stores records in object stores, supports indexes for queries, and runs in a worker-friendly API. Because it is asynchronous and event-based, it is usually wrapped in a small promise helper or replaced by a modern library that offers a promise interface.",
+            "Use IndexedDB when data exceeds what local storage can hold, when you need queries and indexes, or when storing binary content offline. Design the schema with the queries in mind, version the database so upgrades run migrations, and always open a transaction for a coherent unit of work. Clearing and re-seeding is acceptable for caches, but anything user-authored needs an explicit migration path."
+          ]
+        },
+        {
+          "t": "The Cache API and Service Workers",
+          "p": [
+            "A service worker is a script that runs in the background, separate from the page, and can intercept network requests for the origin. Paired with the Cache API it enables offline access, precaching of assets and custom caching strategies such as cache-first for static assets and network-first for data. Service workers require HTTPS, register asynchronously, and have their own lifecycle of install, activate and fetch events.",
+            "Because a service worker sits between the page and the network it is powerful and easy to get wrong: a stale cache can serve outdated code indefinitely. Version cache names, clean old caches on activate, and provide a way to update and reload. For many applications a simpler approach, such as storing data in IndexedDB and letting the network handle assets, is enough and avoids the complexity."
+          ]
+        }
+      ]
+    },
+    {
+      "c": "Modern Browser APIs",
+      "s": [
+        {
+          "t": "Observation APIs",
+          "p": [
+            "IntersectionObserver reports when an element enters or leaves the viewport or another element, which powers lazy loading of images and infinite scrolling without listening to scroll events. MutationObserver reports changes to the DOM tree, which is used to react to third-party content or to run cleanup when nodes are removed. ResizeObserver reports element size changes for responsive layout logic.",
+            "These observers are efficient because the browser batches and delivers notifications rather than making you poll. Prefer them to scroll, resize and polling loops. Remember to disconnect an observer when it is no longer needed, and to avoid doing heavy work directly in the callback, which runs on the main thread."
+          ]
+        },
+        {
+          "t": "File, clipboard and drag and drop",
+          "p": [
+            "The File API represents user-selected files as File objects, which are Blobs with a name and metadata. Reading them uses FileReader or the file's own text and arrayBuffer methods, and large files should be read in slices or as streams to avoid loading everything into memory. A directory or many files can be read from an input element or from drag-and-drop events.",
+            "The clipboard API reads and writes text and rich data with permissions, replacing the older document.execCommand approach. Drag and drop uses dragover and drop events with a dataTransfer payload, and must prevent the default handling to accept a drop. Always validate and sanitise pasted or dropped content before using it, because it is untrusted input from outside the application."
+          ]
+        },
+        {
+          "t": "Other platform capabilities",
+          "p": [
+            "The browser exposes geolocation, notifications, web crypto, canvas and WebGL for graphics, the Web Audio API, media capture and playback, the payment request API, and history manipulation for single-page applications. Each requires user permission, secure context or both, and each should be feature-detected before use because support varies by browser and version.",
+            "Feature detection means checking for the existence of the API before calling it and providing a fallback. Never assume a capability because a browser is recent, and never parse the user-agent string to decide. Progressive enhancement, where a baseline experience works everywhere and richer features are added when available, keeps an application usable across the whole range of clients."
+          ]
+        }
+      ]
+    }
+  ]
+}
