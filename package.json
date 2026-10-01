@@ -11,6 +11,7 @@
     "start": "bun run server/index.ts",
     "seed": "bun run scripts/seed.ts",
     "backup": "bun run scripts/backup.ts",
+    "smoke": "rm -f /tmp/cortex-smoke.db /tmp/cortex-smoke.db-* && bun run scripts/smoke.ts",
     "typecheck": "tsc -b --noEmit",
     "preview": "vite preview"
   },

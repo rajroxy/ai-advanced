@@ -56,6 +56,7 @@ export default function Generate() {
   const [status, setStatus] = useState("");
   const [section, setSection] = useState<{ index: number; total: number; title: string } | null>(null);
   const [running, setRunning] = useState(false);
+  const [grounding, setGrounding] = useState<{ paragraphs: number; cited: number; invalid: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -90,6 +91,7 @@ export default function Generate() {
     setSources([]);
     setPlan(null);
     setSection(null);
+    setGrounding(null);
     setStatus("starting");
     const controller = new AbortController();
     abortRef.current = controller;
@@ -117,6 +119,7 @@ export default function Generate() {
             case "done":
               setStatus("");
               setSection(null);
+              setGrounding(event.grounding);
               break;
             case "error":
               setError(event.message);
@@ -327,7 +330,24 @@ export default function Generate() {
               {running ? (
                 <Spinner label={section ? `Part ${section.index}/${section.total}` : status || "working"} />
               ) : output ? (
-                <span className="flex items-center gap-2 text-mint-400"><Check className="h-4 w-4" /> complete</span>
+                <span className="flex items-center gap-3">
+                  <span className="flex items-center gap-2 text-mint-400">
+                    <Check className="h-4 w-4" /> complete
+                  </span>
+                  {grounding && (
+                    <Badge
+                      tone={
+                        grounding.invalid > 0 ||
+                        (grounding.paragraphs > 0 && grounding.cited / grounding.paragraphs < 0.6)
+                          ? "warn"
+                          : "mint"
+                      }
+                    >
+                      grounded {grounding.cited}/{grounding.paragraphs}
+                      {grounding.invalid > 0 ? ` · ${grounding.invalid} unknown cite` : ""}
+                    </Badge>
+                  )}
+                </span>
               ) : (
                 <span className="text-paper-300/40">output</span>
               )}

@@ -188,7 +188,12 @@ export type GenEvent =
   | { type: "sources"; sources: SourceRef[] }
   | { type: "section-start"; index: number; total: number; title: string }
   | { type: "token"; text: string }
-  | { type: "done"; generationId: string; mode: "single" | "sectioned" }
+  | {
+      type: "done";
+      generationId: string;
+      mode: "single" | "sectioned";
+      grounding: { paragraphs: number; cited: number; invalid: number };
+    }
   | { type: "error"; message: string };
 
 export interface SourceRef {

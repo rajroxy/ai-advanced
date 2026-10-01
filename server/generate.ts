@@ -49,8 +49,40 @@ export type GenEvent =
   | { type: "sources"; sources: SourceRef[] }
   | { type: "section-start"; index: number; total: number; title: string }
   | { type: "token"; text: string }
-  | { type: "done"; generationId: string; mode: "single" | "sectioned" }
+  | { type: "done"; generationId: string; mode: "single" | "sectioned"; grounding: Grounding }
   | { type: "error"; message: string };
+
+/** How much of the output was actually traced back to retrieved passages. */
+export interface Grounding {
+  paragraphs: number;
+  cited: number;
+  invalid: number;
+}
+
+/**
+ * Grounding audit: counts paragraphs that cite a source and how many citations
+ * point at a passage that was not actually retrieved. This is the check that
+ * makes the no-outside-knowledge rule observable instead of merely requested.
+ */
+function auditGrounding(output: string, sources: SourceRef[]): Grounding {
+  const valid = new Set(sources.map((s) => s.label));
+  const paragraphs = output
+    .split(/\n{2,}/)
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0 && !p.startsWith("#") && !p.startsWith("```"));
+
+  let cited = 0;
+  let invalid = 0;
+  for (const paragraph of paragraphs) {
+    const refs = [...paragraph.matchAll(/\[S(\d+)\]/g)];
+    if (!refs.length) continue;
+    cited++;
+    for (const ref of refs) {
+      if (!valid.has(`S${ref[1]}`)) invalid++;
+    }
+  }
+  return { paragraphs: paragraphs.length, cited, invalid };
+}
 
 function toSources(hits: SearchHit[]): SourceRef[] {
   return hits.map((hit, i) => ({
@@ -224,7 +256,7 @@ export async function* runGeneration(req: GenRequest): AsyncGenerator<GenEvent> 
       JSON.stringify(toSources(hits)),
       now(),
     );
-    yield { type: "done", generationId, mode };
+    yield { type: "done", generationId, mode, grounding: auditGrounding(output, toSources(hits)) };
   } catch (err) {
     yield { type: "error", message: err instanceof Error ? err.message : String(err) };
   }
